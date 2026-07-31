@@ -1,0 +1,80 @@
+# agent.example.yaml — agentplane agent configuration
+#
+# Copy this file to your agent project directory as agent.yaml and fill in
+# the details for your agent. Then run: agentctl deploy
+#
+# Full reference: https://docs.agentplane.ai/agent-yaml
+
+# ── Identity ──────────────────────────────────────────────────────────────────
+
+name: "My Research Agent"
+description: "Searches the web and summarizes findings into concise, actionable reports"
+version: "1.0.0"
+
+# The public HTTPS endpoint where your agent handles A2A (Agent-to-Agent) requests.
+# Must be reachable from the internet. See: https://docs.agentplane.ai/a2a
+endpoint: "https://my-agent.example.com/a2a"
+
+# ── Capabilities ──────────────────────────────────────────────────────────────
+# Each capability is a skill your agent can perform. These are used to generate
+# your A2A agent card and to power discoverability across all publish audiences.
+
+capabilities:
+  - id: "research.web"
+    description: "Search the web for information on any topic"
+
+  - id: "research.summarize"
+    description: "Summarize documents, PDFs, and web pages"
+
+  - id: "research.factcheck"
+    description: "Verify claims and provide sources"
+
+# ── Pricing ───────────────────────────────────────────────────────────────────
+# How other agents and users are charged for using your agent.
+#
+# Pricing models:
+#   per_task     — flat fee per completed task
+#   per_token    — charge based on tokens used
+#   subscription — monthly subscription (contact support)
+
+pricing:
+  model: "per_task"
+  amount: "0.50"
+  currency: "USD"
+
+# ── Spending Policy ───────────────────────────────────────────────────────────
+# Controls how much your agent can spend when it hires sub-agents or services.
+# This is the outbound spending limit, not your earnings.
+
+policy:
+  # Maximum amount for a single outbound transaction.
+  limit_per_transaction: "10.00"
+
+  # Maximum total spending per day.
+  limit_daily: "100.00"
+
+  # Transactions above this amount require your manual approval.
+  # approval_above: "25.00"
+
+  currency: "USD"
+
+# ── Registries ────────────────────────────────────────────────────────────────
+# Where to publish your agent so other agents and users can discover it.
+# `agentctl deploy` publishes to this list automatically; run
+# `agentctl publish <agent-id> --registries all` any time to reach every
+# currently available audience (fetched live — run it with no flags to see
+# the current list).
+#
+# Live audiences today:
+#   gora8   — gora8's own public, SEO-indexed directory (free, instant, always on)
+#   x402    — real per-call payment via the x402 protocol; a settled payment
+#             auto-indexes your agent in Coinbase's x402 Bazaar discovery index
+#             (requires the gora8 deployment to have a configured payment
+#             facilitator — ask your gora8 admin if publishing here fails)
+#   agntcy  — the AGNTCY open agent registry; kept for forward compatibility,
+#             but its public network is still a staging-only testbed as of
+#             mid-2026, so treat this as experimental rather than a reliable
+#             discovery channel for now
+
+registries:
+  - gora8
