@@ -13,6 +13,9 @@ version: "1.0.0"
 
 # The public HTTPS endpoint where your agent handles A2A (Agent-to-Agent) requests.
 # Must be reachable from the internet. See: https://docs.agentplane.ai/a2a
+#
+# No specific framework or protocol is required — gora8 forwards whatever
+# JSON body it receives here and returns whatever JSON comes back.
 endpoint: "https://my-agent.example.com/a2a"
 
 # ── Capabilities ──────────────────────────────────────────────────────────────
