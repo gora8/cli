@@ -170,11 +170,14 @@ type VerifyOTPResponse struct {
 	IsNew  bool   `json:"isNew"`
 }
 
-// VerifyOTP exchanges an emailed one-time code for a fresh, persistent API
-// key — this is how both new signups and returning logins get credentials.
+// VerifyOTP exchanges an emailed one-time code for a real, durable API key.
+// The CLI always requests type "api_key" (not the default "session" the web
+// app gets) — a long-lived credential that isn't silently rotated or expired
+// by unrelated logins elsewhere, unlike the web app's own session.
 func (c *Client) VerifyOTP(email, code string) (*VerifyOTPResponse, error) {
 	var res VerifyOTPResponse
-	if err := c.do("POST", "/v1/auth/verify-otp", map[string]string{"email": email, "code": code}, &res); err != nil {
+	body := map[string]string{"email": email, "code": code, "type": "api_key", "label": "CLI"}
+	if err := c.do("POST", "/v1/auth/verify-otp", body, &res); err != nil {
 		return nil, err
 	}
 	return &res, nil
