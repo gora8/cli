@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"runtime"
 
-	"github.com/agentplane/cli/internal/api"
-	"github.com/agentplane/cli/internal/ui"
+	"github.com/gora8/cli/internal/api"
+	"github.com/gora8/cli/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -26,7 +26,7 @@ func runVersion(cmd *cobra.Command, args []string) {
 	// Keep api.Version in sync so it appears in User-Agent headers.
 	api.Version = Version
 
-	ui.Header("agentctl — agentplane CLI")
+	ui.Header("agentctl — gora8 CLI")
 	fmt.Println()
 
 	rows := [][]string{
@@ -42,5 +42,5 @@ func runVersion(cmd *cobra.Command, args []string) {
 	}
 
 	fmt.Println()
-	fmt.Printf("  %s\n", ui.Dim("https://agentplane.ai  ·  docs: https://docs.agentplane.ai"))
+	fmt.Printf("  %s\n", ui.Dim("https://gora8.com  ·  docs: https://gora8.com/docs"))
 }

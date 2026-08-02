@@ -8,10 +8,21 @@ import (
 )
 
 const (
-	DefaultAPIURL = "http://localhost:3001"
-	configDir     = ".agentplane"
+	DefaultAPIURL = "https://api.gora8.com"
+	configDir     = ".gora8"
 	configFile    = "config.json"
 )
+
+// resolveDefaultAPIURL lets local development point the CLI at a non-production
+// API without touching the saved config file — GORA8_API_URL overrides the
+// real default entirely (used by nothing in production; every real user gets
+// DefaultAPIURL).
+func resolveDefaultAPIURL() string {
+	if v := os.Getenv("GORA8_API_URL"); v != "" {
+		return v
+	}
+	return DefaultAPIURL
+}
 
 // Config holds the persisted CLI configuration.
 type Config struct {
@@ -41,7 +52,7 @@ func Load() (*Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return &Config{APIURL: DefaultAPIURL}, nil
+			return &Config{APIURL: resolveDefaultAPIURL()}, nil
 		}
 		return nil, err
 	}
@@ -51,7 +62,7 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 	if cfg.APIURL == "" {
-		cfg.APIURL = DefaultAPIURL
+		cfg.APIURL = resolveDefaultAPIURL()
 	}
 	return &cfg, nil
 }

@@ -10,10 +10,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/agentplane/cli/internal/config"
+	"github.com/gora8/cli/internal/config"
 )
 
-// Client is an HTTP client for the agentplane API.
+// Client is an HTTP client for the gora8 API.
 type Client struct {
 	baseURL    string
 	apiKey     string

@@ -7,27 +7,29 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/agentplane/cli/internal/api"
-	"github.com/agentplane/cli/internal/config"
-	"github.com/agentplane/cli/internal/ui"
+	"github.com/gora8/cli/internal/api"
+	"github.com/gora8/cli/internal/config"
+	"github.com/gora8/cli/internal/ui"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
 
 var authCmd = &cobra.Command{
 	Use:   "auth",
-	Short: "Authenticate with agentplane",
-	Long:  "Manage authentication credentials for the agentplane CLI.",
+	Short: "Authenticate with gora8",
+	Long:  "Manage authentication credentials for the gora8 CLI.",
 }
 
 // ── login ─────────────────────────────────────────────────────────────────────
 
 var authLoginCmd = &cobra.Command{
 	Use:   "login",
-	Short: "Log in to agentplane",
-	Long: `Log in to agentplane using your API key.
+	Short: "Log in to gora8",
+	Long: `Log in to gora8 using your API key.
 
-Get your API key at: https://agentplane.ai/settings/api-keys`,
+Don't have one yet? Sign up at https://gora8.com/signup (or log in at
+https://gora8.com/login if you already have an account) — either flow
+emails you a one-time code and shows your API key once you verify it.`,
 	RunE: runAuthLogin,
 }
 
@@ -42,7 +44,7 @@ func runAuthLogin(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	fmt.Print("  Enter your API key (from agentplane.ai/settings/api-keys): ")
+	fmt.Print("  Enter your API key (get one at gora8.com/signup or gora8.com/login): ")
 
 	var apiKey string
 	// Use terminal raw mode for hidden input when available.
@@ -99,7 +101,7 @@ func runAuthLogin(cmd *cobra.Command, args []string) error {
 
 var authLogoutCmd = &cobra.Command{
 	Use:   "logout",
-	Short: "Log out of agentplane",
+	Short: "Log out of gora8",
 	RunE:  runAuthLogout,
 }
 

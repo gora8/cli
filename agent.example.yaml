@@ -1,9 +1,9 @@
-# agent.example.yaml — agentplane agent configuration
+# agent.example.yaml — gora8 agent configuration
 #
 # Copy this file to your agent project directory as agent.yaml and fill in
 # the details for your agent. Then run: agentctl deploy
 #
-# Full reference: https://docs.agentplane.ai/agent-yaml
+# Full reference: https://gora8.com/docs
 
 # ── Identity ──────────────────────────────────────────────────────────────────
 
@@ -12,7 +12,7 @@ description: "Searches the web and summarizes findings into concise, actionable 
 version: "1.0.0"
 
 # The public HTTPS endpoint where your agent handles A2A (Agent-to-Agent) requests.
-# Must be reachable from the internet. See: https://docs.agentplane.ai/a2a
+# Must be reachable from the internet. See: https://a2a-protocol.org
 #
 # No specific framework or protocol is required — gora8 forwards whatever
 # JSON body it receives here and returns whatever JSON comes back.

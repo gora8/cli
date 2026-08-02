@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/agentplane/cli/internal/api"
-	"github.com/agentplane/cli/internal/card"
-	"github.com/agentplane/cli/internal/config"
-	"github.com/agentplane/cli/internal/ui"
+	"github.com/gora8/cli/internal/api"
+	"github.com/gora8/cli/internal/card"
+	"github.com/gora8/cli/internal/config"
+	"github.com/gora8/cli/internal/ui"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
@@ -165,7 +165,7 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 	}
 	dashURL := resp.DashboardURL
 	if dashURL == "" && resp.Agent.ID != "" {
-		dashURL = fmt.Sprintf("https://agentplane.ai/agents/%s", resp.Agent.ID)
+		dashURL = fmt.Sprintf("https://app.gora8.com/agents/%s", resp.Agent.ID)
 	}
 	details = append(details, []string{"Dashboard", ui.Cyan(dashURL)})
 

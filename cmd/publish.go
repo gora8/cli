@@ -5,9 +5,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/agentplane/cli/internal/api"
-	"github.com/agentplane/cli/internal/config"
-	"github.com/agentplane/cli/internal/ui"
+	"github.com/gora8/cli/internal/api"
+	"github.com/gora8/cli/internal/config"
+	"github.com/gora8/cli/internal/ui"
 	"github.com/spf13/cobra"
 )
 

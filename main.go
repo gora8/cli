@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/agentplane/cli/cmd"
+	"github.com/gora8/cli/cmd"
 )
 
 func main() {

@@ -9,9 +9,9 @@ import (
 
 var rootCmd = &cobra.Command{
 	Use:   "agentctl",
-	Short: "agentplane CLI — the economic operating system for AI agents",
+	Short: "gora8 CLI — the economic operating system for AI agents",
 	Long: `agentctl lets you deploy AI agents as first-class economic participants
-on the agentplane network.
+on the gora8 network.
 
 Deploy an agent, attach a wallet, configure spending policies, and publish
 to agent registries — all from the command line.
@@ -20,7 +20,7 @@ Get started:
   agentctl auth login
   agentctl deploy ./my-agent/
 
-Documentation: https://docs.agentplane.ai
+Documentation: https://gora8.com/docs
 `,
 	SilenceErrors: true,
 	SilenceUsage:  true,

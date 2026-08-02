@@ -1,4 +1,4 @@
-module github.com/agentplane/cli
+module github.com/gora8/cli
 
 go 1.21
 
