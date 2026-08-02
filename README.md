@@ -109,6 +109,8 @@ returns whatever comes back.
 | `gora8 policy [id]` | View an agent's spending policy |
 | `gora8 policy set [id] --limit-per-tx <amt> ...` | Update spending limits and approval thresholds |
 | `gora8 logs [id] [--tail N] [--follow]` | View recent agent interactions |
+| `gora8 notifications [--unread]` | View payments, errors, withdrawals, and calls blocked by an approval threshold |
+| `gora8 notifications read <id> \| read-all` | Mark notifications as read |
 | `gora8 seo [id]` | View discoverability score and suggestions |
 | `gora8 version` | Show CLI version info |
 

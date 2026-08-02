@@ -47,7 +47,7 @@ func init() {
 		seoCmd,
 		policyCmd,
 		logsCmd,
-		approvalsCmd,
+		notificationsCmd,
 		versionCmd,
 	)
 }

@@ -396,44 +396,6 @@ func (c *Client) SetPolicy(agentID string, policy *PolicyConfig) (*PolicyRespons
 	return &resp, nil
 }
 
-// ── Approvals ────────────────────────────────────────────────────────────────
-
-type Approval struct {
-	ID           string  `json:"id"`
-	AgentID      string  `json:"agent_id"`
-	AgentName    string  `json:"agent_name"`
-	Counterparty string  `json:"counterparty"`
-	Amount       float64 `json:"amount"`
-	Currency     string  `json:"currency"`
-	Capability   string  `json:"capability"`
-	Status       string  `json:"status"`
-	CreatedAt    string  `json:"created_at"`
-}
-
-type ApprovalsResponse struct {
-	Approvals []Approval `json:"approvals"`
-}
-
-func (c *Client) ListApprovals(status string) ([]Approval, error) {
-	path := "/v1/approvals"
-	if status != "" {
-		path += "?status=" + url.QueryEscape(status)
-	}
-	var resp ApprovalsResponse
-	if err := c.do("GET", path, nil, &resp); err != nil {
-		return nil, err
-	}
-	return resp.Approvals, nil
-}
-
-func (c *Client) ApproveApproval(id string) error {
-	return c.do("POST", "/v1/approvals/"+id+"/approve", nil, nil)
-}
-
-func (c *Client) DenyApproval(id string) error {
-	return c.do("POST", "/v1/approvals/"+id+"/deny", nil, nil)
-}
-
 // ── Wallet ───────────────────────────────────────────────────────────────────
 
 type Wallet struct {
@@ -586,4 +548,41 @@ func (c *Client) GetLogs(agentID string, tail int) ([]LogEntry, error) {
 		return nil, err
 	}
 	return resp.Entries, nil
+}
+
+// ── Notifications ────────────────────────────────────────────────────────────
+// Includes approval_required — the real signal for a call blocked by an
+// agent's policy.approvalThreshold (see `gora8 policy set --approval-above`).
+// There's no separate hold-and-approve-later flow: a blocked call is
+// rejected immediately, and this is how you find out it happened.
+
+type Notification struct {
+	ID        string  `json:"id"`
+	AgentID   *string `json:"agent_id"`
+	Type      string  `json:"type"`
+	Title     string  `json:"title"`
+	Body      string  `json:"body"`
+	Read      bool    `json:"read"`
+	CreatedAt string  `json:"created_at"`
+}
+
+type NotificationsResponse struct {
+	Notifications []Notification `json:"notifications"`
+	UnreadCount   int            `json:"unread_count"`
+}
+
+func (c *Client) ListNotifications() (*NotificationsResponse, error) {
+	var resp NotificationsResponse
+	if err := c.do("GET", "/v1/notifications", nil, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+func (c *Client) MarkNotificationRead(id string) error {
+	return c.do("POST", "/v1/notifications/"+id+"/read", nil, nil)
+}
+
+func (c *Client) MarkAllNotificationsRead() error {
+	return c.do("POST", "/v1/notifications/read-all", nil, nil)
 }
