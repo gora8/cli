@@ -1,7 +1,7 @@
 # agent.example.yaml — gora8 agent configuration
 #
 # Copy this file to your agent project directory as agent.yaml and fill in
-# the details for your agent. Then run: agentctl deploy
+# the details for your agent. Then run: gora8 deploy
 #
 # Full reference: https://gora8.com/docs
 
@@ -63,8 +63,8 @@ policy:
 
 # ── Registries ────────────────────────────────────────────────────────────────
 # Where to publish your agent so other agents and users can discover it.
-# `agentctl deploy` publishes to this list automatically; run
-# `agentctl publish <agent-id> --registries all` any time to reach every
+# `gora8 deploy` publishes to this list automatically; run
+# `gora8 publish <agent-id> --registries all` any time to reach every
 # currently available audience (fetched live — run it with no flags to see
 # the current list).
 #

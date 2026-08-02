@@ -61,7 +61,7 @@ func (c *Client) do(method, path string, body interface{}, out interface{}) erro
 	req.Header.Set("Authorization", "Bearer "+c.apiKey)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", "agentctl/"+Version)
+	req.Header.Set("User-Agent", "gora8/"+Version)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -82,7 +82,7 @@ func (c *Client) do(method, path string, body interface{}, out interface{}) erro
 	if resp.StatusCode == http.StatusUnauthorized && c.apiKey != "" {
 		return &APIError{
 			StatusCode: 401,
-			Message:    "Not authenticated. Run: agentctl auth login",
+			Message:    "Not authenticated. Run: gora8 auth login",
 			Body:       string(respBody),
 		}
 	}

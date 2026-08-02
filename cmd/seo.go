@@ -21,7 +21,7 @@ Score interpretation:
   < 50  — Poor discoverability, follow suggestions
 
 Example:
-  agentctl seo agt_abc123`,
+  gora8 seo agt_abc123`,
 	Args: cobra.ExactArgs(1),
 	RunE: runSEO,
 }
@@ -32,7 +32,7 @@ func runSEO(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("load config: %w", err)
 	}
 	if !cfg.IsAuthenticated() {
-		ui.Error("Not authenticated. Run: agentctl auth login")
+		ui.Error("Not authenticated. Run: gora8 auth login")
 		return nil
 	}
 

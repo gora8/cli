@@ -30,12 +30,12 @@ var deployCmd = &cobra.Command{
 The deploy command reads your agent.yaml configuration, generates an A2A agent
 card, registers the agent's identity and wallet, and publishes it to gora8's
 own directory by default (free, instant, no external dependency). Run
-'agentctl publish' separately to reach other audiences like x402 Bazaar.
+'gora8 publish' separately to reach other audiences like x402 Bazaar.
 
 Examples:
-  agentctl deploy                      # Deploy from current directory
-  agentctl deploy ./my-agent/          # Deploy from a specific path
-  agentctl deploy --name "My Agent"    # Override agent name`,
+  gora8 deploy                      # Deploy from current directory
+  gora8 deploy ./my-agent/          # Deploy from a specific path
+  gora8 deploy --name "My Agent"    # Override agent name`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: runDeploy,
 }
@@ -46,7 +46,7 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("load config: %w", err)
 	}
 	if !cfg.IsAuthenticated() {
-		ui.Error("Not authenticated. Run: agentctl auth login")
+		ui.Error("Not authenticated. Run: gora8 auth login")
 		return nil
 	}
 
@@ -146,7 +146,7 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 	spin3 := ui.NewSpinner(fmt.Sprintf("Publishing to %s...", strings.Join(agentConfig.Registries, ", ")))
 	spin3.Start()
 	if _, err := client.PublishAgent(resp.Agent.ID, &api.PublishRequest{Registries: agentConfig.Registries}); err != nil {
-		spin3.Fail("Publish failed — run 'agentctl publish " + resp.Agent.ID + "' to retry")
+		spin3.Fail("Publish failed — run 'gora8 publish " + resp.Agent.ID + "' to retry")
 	} else {
 		spin3.Stop("Published")
 	}
@@ -173,7 +173,7 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 		fmt.Printf("  %s  %s\n", ui.Dim(fmt.Sprintf("%-12s", d[0])), d[1])
 	}
 	fmt.Println()
-	ui.Info("Run `agentctl agents list` to see all your agents.")
+	ui.Info("Run `gora8 agents list` to see all your agents.")
 	return nil
 }
 

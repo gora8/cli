@@ -30,7 +30,7 @@ func runApprovalsList(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("load config: %w", err)
 	}
 	if !cfg.IsAuthenticated() {
-		ui.Error("Not authenticated. Run: agentctl auth login")
+		ui.Error("Not authenticated. Run: gora8 auth login")
 		return nil
 	}
 
@@ -71,8 +71,8 @@ func runApprovalsList(cmd *cobra.Command, args []string) error {
 	}
 	ui.Table(headers, rows)
 	fmt.Println()
-	ui.Info("Approve with: agentctl approvals approve <id>")
-	ui.Info("Deny with:    agentctl approvals deny <id>")
+	ui.Info("Approve with: gora8 approvals approve <id>")
+	ui.Info("Deny with:    gora8 approvals deny <id>")
 	return nil
 }
 
@@ -91,7 +91,7 @@ func runApprovalsApprove(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("load config: %w", err)
 	}
 	if !cfg.IsAuthenticated() {
-		ui.Error("Not authenticated. Run: agentctl auth login")
+		ui.Error("Not authenticated. Run: gora8 auth login")
 		return nil
 	}
 
@@ -122,7 +122,7 @@ func runApprovalsDeny(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("load config: %w", err)
 	}
 	if !cfg.IsAuthenticated() {
-		ui.Error("Not authenticated. Run: agentctl auth login")
+		ui.Error("Not authenticated. Run: gora8 auth login")
 		return nil
 	}
 

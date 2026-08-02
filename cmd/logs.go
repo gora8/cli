@@ -24,9 +24,9 @@ Each entry shows the timestamp, counterparty, capability invoked, status,
 duration, and amount charged.
 
 Examples:
-  agentctl logs agt_abc123
-  agentctl logs agt_abc123 --tail 50
-  agentctl logs agt_abc123 --follow`,
+  gora8 logs agt_abc123
+  gora8 logs agt_abc123 --tail 50
+  gora8 logs agt_abc123 --follow`,
 	Args: cobra.ExactArgs(1),
 	RunE: runLogs,
 }
@@ -37,7 +37,7 @@ func runLogs(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("load config: %w", err)
 	}
 	if !cfg.IsAuthenticated() {
-		ui.Error("Not authenticated. Run: agentctl auth login")
+		ui.Error("Not authenticated. Run: gora8 auth login")
 		return nil
 	}
 

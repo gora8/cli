@@ -18,11 +18,11 @@ var earningsCmd = &cobra.Command{
 	Long: `View earnings for one or all agents.
 
 Examples:
-  agentctl earnings                   # All agents
-  agentctl earnings agt_abc123        # Specific agent
-  agentctl earnings --period 7d       # Last 7 days
-  agentctl earnings --period 30d      # Last 30 days (default)
-  agentctl earnings --period all      # All time`,
+  gora8 earnings                   # All agents
+  gora8 earnings agt_abc123        # Specific agent
+  gora8 earnings --period 7d       # Last 7 days
+  gora8 earnings --period 30d      # Last 30 days (default)
+  gora8 earnings --period all      # All time`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: runEarnings,
 }
@@ -33,7 +33,7 @@ func runEarnings(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("load config: %w", err)
 	}
 	if !cfg.IsAuthenticated() {
-		ui.Error("Not authenticated. Run: agentctl auth login")
+		ui.Error("Not authenticated. Run: gora8 auth login")
 		return nil
 	}
 

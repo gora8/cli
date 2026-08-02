@@ -36,7 +36,7 @@ func runAgentsList(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("load config: %w", err)
 	}
 	if !cfg.IsAuthenticated() {
-		ui.Error("Not authenticated. Run: agentctl auth login")
+		ui.Error("Not authenticated. Run: gora8 auth login")
 		return nil
 	}
 
@@ -56,7 +56,7 @@ func runAgentsList(cmd *cobra.Command, args []string) error {
 
 	if len(agents) == 0 {
 		ui.Info("No agents deployed yet.")
-		ui.Info("Deploy your first agent with: agentctl deploy ./my-agent/")
+		ui.Info("Deploy your first agent with: gora8 deploy ./my-agent/")
 		return nil
 	}
 
@@ -97,7 +97,7 @@ func runAgentsPause(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("load config: %w", err)
 	}
 	if !cfg.IsAuthenticated() {
-		ui.Error("Not authenticated. Run: agentctl auth login")
+		ui.Error("Not authenticated. Run: gora8 auth login")
 		return nil
 	}
 
@@ -110,7 +110,7 @@ func runAgentsPause(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	spin.Stop(fmt.Sprintf("Agent %s paused", ui.Bold(agentID)))
-	ui.Info("Resume at any time with: agentctl agents resume " + agentID)
+	ui.Info("Resume at any time with: gora8 agents resume " + agentID)
 	return nil
 }
 
@@ -129,7 +129,7 @@ func runAgentsResume(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("load config: %w", err)
 	}
 	if !cfg.IsAuthenticated() {
-		ui.Error("Not authenticated. Run: agentctl auth login")
+		ui.Error("Not authenticated. Run: gora8 auth login")
 		return nil
 	}
 
@@ -162,7 +162,7 @@ func runAgentsDelete(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("load config: %w", err)
 	}
 	if !cfg.IsAuthenticated() {
-		ui.Error("Not authenticated. Run: agentctl auth login")
+		ui.Error("Not authenticated. Run: gora8 auth login")
 		return nil
 	}
 

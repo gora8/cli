@@ -18,7 +18,7 @@ var (
 
 var versionCmd = &cobra.Command{
 	Use:   "version",
-	Short: "Show agentctl version information",
+	Short: "Show gora8 version information",
 	Run:   runVersion,
 }
 
@@ -26,7 +26,7 @@ func runVersion(cmd *cobra.Command, args []string) {
 	// Keep api.Version in sync so it appears in User-Agent headers.
 	api.Version = Version
 
-	ui.Header("agentctl — gora8 CLI")
+	ui.Header("gora8 CLI")
 	fmt.Println()
 
 	rows := [][]string{

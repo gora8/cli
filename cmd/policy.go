@@ -13,10 +13,10 @@ var policyCmd = &cobra.Command{
 	Use:   "policy [agent-id]",
 	Short: "View or manage spending policy for an agent",
 	Long: `View the current spending policy for an agent.
-Use 'agentctl policy set' to update the policy.
+Use 'gora8 policy set' to update the policy.
 
 Example:
-  agentctl policy agt_abc123`,
+  gora8 policy agt_abc123`,
 	Args: cobra.ExactArgs(1),
 	RunE: runPolicyGet,
 }
@@ -29,7 +29,7 @@ func runPolicyGet(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("load config: %w", err)
 	}
 	if !cfg.IsAuthenticated() {
-		ui.Error("Not authenticated. Run: agentctl auth login")
+		ui.Error("Not authenticated. Run: gora8 auth login")
 		return nil
 	}
 
@@ -71,7 +71,7 @@ func runPolicyGet(cmd *cobra.Command, args []string) error {
 		fmt.Printf("  %s  %s\n", ui.Dim(fmt.Sprintf("%-24s", row[0])), row[1])
 	}
 	fmt.Println()
-	ui.Info(fmt.Sprintf("Update policy with: agentctl policy set %s --limit-per-tx <amount>", agentID))
+	ui.Info(fmt.Sprintf("Update policy with: gora8 policy set %s --limit-per-tx <amount>", agentID))
 	return nil
 }
 
@@ -93,9 +93,9 @@ var policySetCmd = &cobra.Command{
 You can set limits and configure when manual approval is required.
 
 Examples:
-  agentctl policy set agt_abc123 --limit-per-tx 5.00
-  agentctl policy set agt_abc123 --limit-daily 50.00 --limit-monthly 200.00
-  agentctl policy set agt_abc123 --approval-above 25.00 --currency USD`,
+  gora8 policy set agt_abc123 --limit-per-tx 5.00
+  gora8 policy set agt_abc123 --limit-daily 50.00 --limit-monthly 200.00
+  gora8 policy set agt_abc123 --approval-above 25.00 --currency USD`,
 	Args: cobra.ExactArgs(1),
 	RunE: runPolicySet,
 }
@@ -106,7 +106,7 @@ func runPolicySet(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("load config: %w", err)
 	}
 	if !cfg.IsAuthenticated() {
-		ui.Error("Not authenticated. Run: agentctl auth login")
+		ui.Error("Not authenticated. Run: gora8 auth login")
 		return nil
 	}
 

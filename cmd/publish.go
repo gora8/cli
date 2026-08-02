@@ -18,14 +18,14 @@ var publishCmd = &cobra.Command{
 	Short: "Publish an agent to discovery audiences",
 	Long: `Publish an agent to one or more discovery audiences.
 
-Run 'agentctl publish <agent-id>' with no --registries flag to see the
+Run 'gora8 publish <agent-id>' with no --registries flag to see the
 currently available audiences fetched live from the server, or pass
 --registries all to publish to every one of them.
 
 Examples:
-  agentctl publish agt_abc123
-  agentctl publish agt_abc123 --registries gora8,x402
-  agentctl publish agt_abc123 --registries all`,
+  gora8 publish agt_abc123
+  gora8 publish agt_abc123 --registries gora8,x402
+  gora8 publish agt_abc123 --registries all`,
 	Args: cobra.ExactArgs(1),
 	RunE: runPublish,
 }
@@ -36,7 +36,7 @@ func runPublish(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("load config: %w", err)
 	}
 	if !cfg.IsAuthenticated() {
-		ui.Error("Not authenticated. Run: agentctl auth login")
+		ui.Error("Not authenticated. Run: gora8 auth login")
 		return nil
 	}
 

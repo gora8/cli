@@ -22,10 +22,10 @@ Each deployed agent has an attached x402-compatible wallet. Funds arrive
 automatically when counterparties pay for capability invocations.
 
 Examples:
-  agentctl wallet show                          # Show all wallet balances
-  agentctl wallet show --agent agt_abc123       # Show one agent's wallet
-  agentctl wallet transactions --agent agt_abc123
-  agentctl wallet withdraw --agent agt_abc123 --amount 50.00 --to 0x...`,
+  gora8 wallet show                          # Show all wallet balances
+  gora8 wallet show --agent agt_abc123       # Show one agent's wallet
+  gora8 wallet transactions --agent agt_abc123
+  gora8 wallet withdraw --agent agt_abc123 --amount 50.00 --to 0x...`,
 }
 
 var walletShowCmd = &cobra.Command{
@@ -37,7 +37,7 @@ var walletShowCmd = &cobra.Command{
 			return fmt.Errorf("load config: %w", err)
 		}
 		if !cfg.IsAuthenticated() {
-			ui.Error("Not authenticated. Run: agentctl auth login")
+			ui.Error("Not authenticated. Run: gora8 auth login")
 			return nil
 		}
 
@@ -63,7 +63,7 @@ var walletShowCmd = &cobra.Command{
 			return err
 		}
 		if len(wallets) == 0 {
-			ui.Info("No wallets found. Deploy an agent first: agentctl deploy")
+			ui.Info("No wallets found. Deploy an agent first: gora8 deploy")
 			return nil
 		}
 
@@ -92,7 +92,7 @@ var walletTransactionsCmd = &cobra.Command{
 			return fmt.Errorf("load config: %w", err)
 		}
 		if !cfg.IsAuthenticated() {
-			ui.Error("Not authenticated. Run: agentctl auth login")
+			ui.Error("Not authenticated. Run: gora8 auth login")
 			return nil
 		}
 		if walletAgentID == "" {
@@ -140,7 +140,7 @@ var walletWithdrawCmd = &cobra.Command{
 			return fmt.Errorf("load config: %w", err)
 		}
 		if !cfg.IsAuthenticated() {
-			ui.Error("Not authenticated. Run: agentctl auth login")
+			ui.Error("Not authenticated. Run: gora8 auth login")
 			return nil
 		}
 		if walletAgentID == "" {

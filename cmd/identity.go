@@ -22,9 +22,9 @@ identifier that any counterparty can resolve offline. The DID document contains
 the agent's public key, endpoint, and capability declarations.
 
 Examples:
-  agentctl identity show --agent agt_abc123     # Show DID and document
-  agentctl identity verify did:web:acme.com:legal-research
-  agentctl identity rotate --agent agt_abc123   # Rotate signing keys`,
+  gora8 identity show --agent agt_abc123     # Show DID and document
+  gora8 identity verify did:web:acme.com:legal-research
+  gora8 identity rotate --agent agt_abc123   # Rotate signing keys`,
 }
 
 var identityShowCmd = &cobra.Command{
@@ -36,7 +36,7 @@ var identityShowCmd = &cobra.Command{
 			return fmt.Errorf("load config: %w", err)
 		}
 		if !cfg.IsAuthenticated() {
-			ui.Error("Not authenticated. Run: agentctl auth login")
+			ui.Error("Not authenticated. Run: gora8 auth login")
 			return nil
 		}
 		if identityAgentID == "" {
@@ -78,7 +78,7 @@ var identityVerifyCmd = &cobra.Command{
 			return fmt.Errorf("load config: %w", err)
 		}
 		if !cfg.IsAuthenticated() {
-			ui.Error("Not authenticated. Run: agentctl auth login")
+			ui.Error("Not authenticated. Run: gora8 auth login")
 			return nil
 		}
 
@@ -133,7 +133,7 @@ After rotation, the new key is used for all new transaction signatures.`,
 			return fmt.Errorf("load config: %w", err)
 		}
 		if !cfg.IsAuthenticated() {
-			ui.Error("Not authenticated. Run: agentctl auth login")
+			ui.Error("Not authenticated. Run: gora8 auth login")
 			return nil
 		}
 		if identityAgentID == "" {

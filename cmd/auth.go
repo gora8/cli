@@ -33,7 +33,7 @@ New here? This walks you through it — enter your email, we send you a
 6-digit code, and you're in. No separate signup step needed.
 
 Already have an API key (e.g. from a teammate or a CI secret)? Pass it
-directly: agentctl auth login --api-key <key>`,
+directly: gora8 auth login --api-key <key>`,
 	RunE: runAuthLogin,
 }
 
@@ -48,7 +48,7 @@ func runAuthLogin(cmd *cobra.Command, args []string) error {
 	}
 
 	if cfg.IsAuthenticated() {
-		ui.Warning(fmt.Sprintf("Already logged in as %s. Log out first with: agentctl auth logout", cfg.UserEmail))
+		ui.Warning(fmt.Sprintf("Already logged in as %s. Log out first with: gora8 auth logout", cfg.UserEmail))
 		return nil
 	}
 
@@ -72,7 +72,7 @@ func runAuthLogin(cmd *cobra.Command, args []string) error {
 
 // loginWithEmailOTP prompts for an email, sends a one-time code, and
 // exchanges it for an API key — this is the real primary flow, since most
-// people running `agentctl auth login` for the first time have no key yet.
+// people running `gora8 auth login` for the first time have no key yet.
 func loginWithEmailOTP(cfg *config.Config) error {
 	client := api.New(cfg)
 
@@ -206,7 +206,7 @@ func runAuthWhoami(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("load config: %w", err)
 	}
 	if !cfg.IsAuthenticated() {
-		ui.Error("Not authenticated. Run: agentctl auth login")
+		ui.Error("Not authenticated. Run: gora8 auth login")
 		return nil
 	}
 
