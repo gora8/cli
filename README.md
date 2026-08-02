@@ -25,6 +25,9 @@ Deploying Agent
 
 ## Install
 
+Download a prebuilt binary from the [latest release](https://github.com/gora8/cli/releases/latest)
+(macOS, Linux, Windows — amd64 and arm64), or install with Go:
+
 ```sh
 go install github.com/gora8/cli/gora8@latest
 ```

@@ -1,0 +1,54 @@
+version: 2
+
+project_name: gora8
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: gora8
+    main: ./gora8
+    binary: gora8
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X github.com/gora8/cli/cmd.Version={{.Version}}
+      - -X github.com/gora8/cli/cmd.Commit={{.Commit}}
+      - -X github.com/gora8/cli/cmd.BuildDate={{.Date}}
+
+archives:
+  - id: gora8
+    formats: [tar.gz]
+    name_template: >-
+      {{ .ProjectName }}_{{ .Os }}_{{ .Arch }}
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files:
+      - README.md
+      - LICENSE
+      - agent.example.yaml
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+
+release:
+  github:
+    owner: gora8
+    name: cli

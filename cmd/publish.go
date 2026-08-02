@@ -61,7 +61,7 @@ func runPublish(cmd *cobra.Command, args []string) error {
 		spin := ui.NewSpinner(fmt.Sprintf("Publishing to %s...", ui.Bold(reg)))
 		spin.Start()
 		time.Sleep(200 * time.Millisecond) // Brief visual pause.
-		spin.Stop("") // Stop will be overridden by API response.
+		spin.Stop("")                      // Stop will be overridden by API response.
 	}
 
 	// Call the API.

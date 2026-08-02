@@ -8,16 +8,16 @@ import (
 
 // A2ACard is a valid A2A (Agent-to-Agent) agent card.
 type A2ACard struct {
-	ProtocolVersion    string            `json:"protocolVersion"`
-	Name               string            `json:"name"`
-	Description        string            `json:"description"`
-	URL                string            `json:"url"`
-	Version            string            `json:"version"`
-	Capabilities       CardCapabilities  `json:"capabilities"`
-	Skills             []Skill           `json:"skills"`
-	DefaultInputModes  []string          `json:"defaultInputModes"`
-	DefaultOutputModes []string          `json:"defaultOutputModes"`
-	Provider           *Provider         `json:"provider,omitempty"`
+	ProtocolVersion    string           `json:"protocolVersion"`
+	Name               string           `json:"name"`
+	Description        string           `json:"description"`
+	URL                string           `json:"url"`
+	Version            string           `json:"version"`
+	Capabilities       CardCapabilities `json:"capabilities"`
+	Skills             []Skill          `json:"skills"`
+	DefaultInputModes  []string         `json:"defaultInputModes"`
+	DefaultOutputModes []string         `json:"defaultOutputModes"`
+	Provider           *Provider        `json:"provider,omitempty"`
 }
 
 // CardCapabilities describes what the agent can do at the protocol level.
@@ -42,14 +42,14 @@ type Provider struct {
 
 // AgentYAML mirrors the structure of agent.yaml for card generation.
 type AgentYAML struct {
-	Name         string             `yaml:"name"        json:"name"`
-	Description  string             `yaml:"description" json:"description"`
-	Version      string             `yaml:"version"     json:"version"`
-	Endpoint     string             `yaml:"endpoint"    json:"endpoint"`
-	Capabilities []YAMLCapability   `yaml:"capabilities" json:"capabilities"`
-	Pricing      YAMLPricing        `yaml:"pricing"     json:"pricing"`
-	Policy       YAMLPolicy         `yaml:"policy"      json:"policy"`
-	Registries   []string           `yaml:"registries"  json:"registries"`
+	Name         string           `yaml:"name"        json:"name"`
+	Description  string           `yaml:"description" json:"description"`
+	Version      string           `yaml:"version"     json:"version"`
+	Endpoint     string           `yaml:"endpoint"    json:"endpoint"`
+	Capabilities []YAMLCapability `yaml:"capabilities" json:"capabilities"`
+	Pricing      YAMLPricing      `yaml:"pricing"     json:"pricing"`
+	Policy       YAMLPolicy       `yaml:"policy"      json:"policy"`
+	Registries   []string         `yaml:"registries"  json:"registries"`
 }
 
 type YAMLCapability struct {
