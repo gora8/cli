@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/gora8/cli/internal/api"
 	"github.com/gora8/cli/internal/config"
@@ -12,6 +13,8 @@ import (
 var walletAgentID string
 var withdrawAmount string
 var withdrawTo string
+var exportYear string
+var exportOut string
 
 var walletCmd = &cobra.Command{
 	Use:   "wallet",
@@ -178,12 +181,66 @@ var walletWithdrawCmd = &cobra.Command{
 	},
 }
 
+var walletExportCmd = &cobra.Command{
+	Use:   "export",
+	Short: "Export transaction history as CSV",
+	Long: `Export every earnings and withdrawal transaction as CSV — for tax and
+accounting records. Writes to stdout by default so it composes with shell
+redirection; use --out to write to a file directly.
+
+Examples:
+  gora8 wallet export > all-time.csv
+  gora8 wallet export --year 2026 --out 2026-taxes.csv
+  gora8 wallet export --agent agt_abc123 --year 2026`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cfg, err := config.Load()
+		if err != nil {
+			return fmt.Errorf("load config: %w", err)
+		}
+		if !cfg.IsAuthenticated() {
+			ui.Error("Not authenticated. Run: gora8 auth login")
+			return nil
+		}
+
+		client := api.New(cfg)
+		var csv []byte
+		if exportOut == "" {
+			// Writing status/progress to stdout would corrupt piped CSV
+			// output (e.g. `gora8 wallet export > file.csv`), so stay
+			// silent unless something goes wrong.
+			csv, err = client.ExportWalletCSV(walletAgentID, exportYear)
+			if err != nil {
+				return err
+			}
+			_, err = os.Stdout.Write(csv)
+			return err
+		}
+
+		spin := ui.NewSpinner("Exporting...")
+		spin.Start()
+		csv, err = client.ExportWalletCSV(walletAgentID, exportYear)
+		if err != nil {
+			spin.Fail("Export failed")
+			return err
+		}
+		if err := os.WriteFile(exportOut, csv, 0o644); err != nil {
+			spin.Fail("Failed to write file")
+			return fmt.Errorf("write %s: %w", exportOut, err)
+		}
+		spin.Stop(fmt.Sprintf("Exported to %s", ui.Bold(exportOut)))
+		return nil
+	},
+}
+
 func init() {
 	walletShowCmd.Flags().StringVar(&walletAgentID, "agent", "", "Agent ID (omit to show all)")
 	walletTransactionsCmd.Flags().StringVar(&walletAgentID, "agent", "", "Agent ID")
 	walletWithdrawCmd.Flags().StringVar(&walletAgentID, "agent", "", "Agent ID")
 	walletWithdrawCmd.Flags().StringVar(&withdrawAmount, "amount", "", "Amount to withdraw (e.g. 50.00)")
 	walletWithdrawCmd.Flags().StringVar(&withdrawTo, "to", "", "Destination wallet address")
+	walletExportCmd.Flags().StringVar(&walletAgentID, "agent", "", "Agent ID (omit to export every agent you own)")
+	walletExportCmd.Flags().StringVar(&exportYear, "year", "", "Calendar year to export, e.g. 2026 (omit for all-time)")
+	walletExportCmd.Flags().StringVar(&exportOut, "out", "", "Write to this file instead of stdout")
 
-	walletCmd.AddCommand(walletShowCmd, walletTransactionsCmd, walletWithdrawCmd)
+	walletCmd.AddCommand(walletShowCmd, walletTransactionsCmd, walletWithdrawCmd, walletExportCmd)
 }

@@ -105,6 +105,7 @@ returns whatever comes back.
 | `gora8 wallet show [--agent <id>]` | Show wallet address and balance |
 | `gora8 wallet transactions --agent <id>` | Show incoming payment history |
 | `gora8 wallet withdraw --agent <id> --amount <amt> --to <address>` | Withdraw earnings to an external address |
+| `gora8 wallet export [--agent <id>] [--year YYYY] [--out file]` | Export earnings + withdrawals as CSV, for tax/accounting records |
 | `gora8 earnings [id]` | View earnings over a period (`--period 7d\|30d\|90d`) |
 | `gora8 identity show --agent <id>` | Show an agent's `did:web` identity document |
 | `gora8 identity verify <did>` | Resolve and verify any agent's DID |

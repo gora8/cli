@@ -44,18 +44,34 @@ func (e *APIError) Error() string {
 
 // do executes a request and decodes the JSON response into out (if non-nil).
 func (c *Client) do(method, path string, body interface{}, out interface{}) error {
+	respBody, err := c.doRaw(method, path, body)
+	if err != nil {
+		return err
+	}
+	if out != nil && len(respBody) > 0 {
+		if err := json.Unmarshal(respBody, out); err != nil {
+			return fmt.Errorf("decode response: %w", err)
+		}
+	}
+	return nil
+}
+
+// doRaw executes a request and returns the raw response body — for
+// non-JSON responses (e.g. the wallet CSV export) that `do`'s JSON
+// decoding can't handle.
+func (c *Client) doRaw(method, path string, body interface{}) ([]byte, error) {
 	var bodyReader io.Reader
 	if body != nil {
 		data, err := json.Marshal(body)
 		if err != nil {
-			return fmt.Errorf("marshal request body: %w", err)
+			return nil, fmt.Errorf("marshal request body: %w", err)
 		}
 		bodyReader = bytes.NewReader(data)
 	}
 
 	req, err := http.NewRequest(method, c.baseURL+path, bodyReader)
 	if err != nil {
-		return fmt.Errorf("create request: %w", err)
+		return nil, fmt.Errorf("create request: %w", err)
 	}
 
 	req.Header.Set("Authorization", "Bearer "+c.apiKey)
@@ -65,13 +81,13 @@ func (c *Client) do(method, path string, body interface{}, out interface{}) erro
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("execute request: %w", err)
+		return nil, fmt.Errorf("execute request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return fmt.Errorf("read response body: %w", err)
+		return nil, fmt.Errorf("read response body: %w", err)
 	}
 
 	// A 401 with no API key set (send-otp/verify-otp, before any credential
@@ -80,7 +96,7 @@ func (c *Client) do(method, path string, body interface{}, out interface{}) erro
 	// message to the generic "run auth login" hint when we actually had a
 	// key and the server rejected it.
 	if resp.StatusCode == http.StatusUnauthorized && c.apiKey != "" {
-		return &APIError{
+		return nil, &APIError{
 			StatusCode: 401,
 			Message:    "Not authenticated. Run: gora8 auth login",
 			Body:       string(respBody),
@@ -88,7 +104,7 @@ func (c *Client) do(method, path string, body interface{}, out interface{}) erro
 	}
 
 	if resp.StatusCode == http.StatusNotFound {
-		return &APIError{
+		return nil, &APIError{
 			StatusCode: 404,
 			Message:    "Resource not found. Check the ID and try again.",
 			Body:       string(respBody),
@@ -109,20 +125,14 @@ func (c *Client) do(method, path string, body interface{}, out interface{}) erro
 				msg = apiErr.Error
 			}
 		}
-		return &APIError{
+		return nil, &APIError{
 			StatusCode: resp.StatusCode,
 			Message:    msg,
 			Body:       string(respBody),
 		}
 	}
 
-	if out != nil && len(respBody) > 0 {
-		if err := json.Unmarshal(respBody, out); err != nil {
-			return fmt.Errorf("decode response: %w", err)
-		}
-	}
-
-	return nil
+	return respBody, nil
 }
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
@@ -467,6 +477,21 @@ func (c *Client) WithdrawFunds(agentID, amount, toAddress string) (*WithdrawResu
 		return nil, err
 	}
 	return &result, nil
+}
+
+// ExportWalletCSV returns a real CSV of every earnings + withdrawal
+// transaction — for tax/accounting records. agentID scopes to one agent
+// (empty = every agent the user owns); year is an explicit calendar year
+// (empty = all-time).
+func (c *Client) ExportWalletCSV(agentID, year string) ([]byte, error) {
+	path := "/v1/wallets/export"
+	if agentID != "" {
+		path = "/v1/agents/" + agentID + "/wallet/export"
+	}
+	if year != "" {
+		path += "?year=" + url.QueryEscape(year)
+	}
+	return c.doRaw("GET", path, nil)
 }
 
 // ── Identity ─────────────────────────────────────────────────────────────────
