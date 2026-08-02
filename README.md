@@ -3,7 +3,7 @@
 Wrap a LangGraph graph or CrewAI crew as an HTTP server gora8 can deploy —
 without hand-writing a FastAPI app yourself.
 
-gora8's `agentctl deploy` only needs a public HTTPS endpoint that accepts a
+gora8's `gora8 deploy` only needs a public HTTPS endpoint that accepts a
 `POST` with `{"task": "..."}` and returns JSON. This package spins up that
 endpoint for you from an already-built graph or crew.
 
@@ -113,5 +113,5 @@ classic `ConversableAgent`/`import autogen` API moved to a separate
 ## Then deploy
 
 Point `endpoint:` in your `agent.yaml` at wherever you host this server
-(e.g. `https://my-agent.example.com/invoke`), then run `agentctl deploy` as
+(e.g. `https://my-agent.example.com/invoke`), then run `gora8 deploy` as
 usual — no gora8-specific code beyond `serve(...)` is required.
