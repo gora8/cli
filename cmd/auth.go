@@ -22,15 +22,23 @@ var authCmd = &cobra.Command{
 
 // ── login ─────────────────────────────────────────────────────────────────────
 
+var authLoginAPIKeyFlag string
+
 var authLoginCmd = &cobra.Command{
 	Use:   "login",
 	Short: "Log in to gora8",
-	Long: `Log in to gora8 using your API key.
+	Long: `Log in to gora8.
 
-Don't have one yet? Sign up at https://gora8.com/signup (or log in at
-https://gora8.com/login if you already have an account) — either flow
-emails you a one-time code and shows your API key once you verify it.`,
+New here? This walks you through it — enter your email, we send you a
+6-digit code, and you're in. No separate signup step needed.
+
+Already have an API key (e.g. from a teammate or a CI secret)? Pass it
+directly: agentctl auth login --api-key <key>`,
 	RunE: runAuthLogin,
+}
+
+func init() {
+	authLoginCmd.Flags().StringVar(&authLoginAPIKeyFlag, "api-key", "", "Log in with an API key you already have, skipping the email flow")
 }
 
 func runAuthLogin(cmd *cobra.Command, args []string) error {
@@ -44,30 +52,94 @@ func runAuthLogin(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	fmt.Print("  Enter your API key (get one at gora8.com/signup or gora8.com/login): ")
-
-	var apiKey string
-	// Use terminal raw mode for hidden input when available.
-	if term.IsTerminal(int(syscall.Stdin)) {
-		data, err := term.ReadPassword(int(syscall.Stdin))
-		fmt.Println()
-		if err != nil {
-			return fmt.Errorf("read API key: %w", err)
-		}
-		apiKey = strings.TrimSpace(string(data))
-	} else {
-		// Fallback for piped input.
+	// Non-interactive paths: an explicit --api-key flag, or a key piped in
+	// via stdin (for scripts/CI where there's no TTY to run the email flow).
+	if authLoginAPIKeyFlag != "" {
+		return loginWithAPIKey(cfg, authLoginAPIKeyFlag)
+	}
+	if !term.IsTerminal(int(syscall.Stdin)) {
 		scanner := bufio.NewScanner(os.Stdin)
 		if scanner.Scan() {
-			apiKey = strings.TrimSpace(scanner.Text())
+			if key := strings.TrimSpace(scanner.Text()); key != "" {
+				return loginWithAPIKey(cfg, key)
+			}
 		}
+		return fmt.Errorf("no API key piped on stdin; run interactively or pass --api-key")
 	}
 
-	if apiKey == "" {
-		return fmt.Errorf("API key cannot be empty")
+	return loginWithEmailOTP(cfg)
+}
+
+// loginWithEmailOTP prompts for an email, sends a one-time code, and
+// exchanges it for an API key — this is the real primary flow, since most
+// people running `agentctl auth login` for the first time have no key yet.
+func loginWithEmailOTP(cfg *config.Config) error {
+	client := api.New(cfg)
+
+	fmt.Print("  Email: ")
+	reader := bufio.NewReader(os.Stdin)
+	email, err := reader.ReadString('\n')
+	if err != nil {
+		return fmt.Errorf("read email: %w", err)
+	}
+	email = strings.TrimSpace(email)
+	if email == "" {
+		return fmt.Errorf("email cannot be empty")
 	}
 
-	// Validate by calling /v1/me.
+	spin := ui.NewSpinner("Sending code...")
+	spin.Start()
+	sent, err := client.SendOTP(email)
+	if err != nil {
+		spin.Fail("Failed to send code")
+		return fmt.Errorf("send code: %w", err)
+	}
+	spin.Stop("")
+	if sent.DevMode {
+		ui.Info("Dev mode — use code 000000")
+	} else {
+		ui.Info(fmt.Sprintf("Sent a 6-digit code to %s", email))
+	}
+
+	fmt.Print("  Code: ")
+	code, err := reader.ReadString('\n')
+	if err != nil {
+		return fmt.Errorf("read code: %w", err)
+	}
+	code = strings.TrimSpace(code)
+	if code == "" {
+		return fmt.Errorf("code cannot be empty")
+	}
+
+	spin = ui.NewSpinner("Verifying...")
+	spin.Start()
+	verified, err := client.VerifyOTP(email, code)
+	if err != nil {
+		spin.Fail("Invalid or expired code")
+		return fmt.Errorf("verify code: %w", err)
+	}
+	spin.Stop("")
+
+	cfg.APIKey = verified.APIKey
+	cfg.UserEmail = verified.User.Email
+	cfg.UserID = verified.User.ID
+	if err := config.Save(cfg); err != nil {
+		return fmt.Errorf("save config: %w", err)
+	}
+
+	if verified.IsNew {
+		ui.Success(fmt.Sprintf("Welcome to gora8, %s!", ui.Bold(verified.User.Email)))
+	} else {
+		ui.Success(fmt.Sprintf("Logged in as %s", ui.Bold(verified.User.Email)))
+	}
+	if verified.User.Plan != "" {
+		ui.Info(fmt.Sprintf("Plan: %s", verified.User.Plan))
+	}
+	return nil
+}
+
+// loginWithAPIKey validates and persists a key the caller already has.
+func loginWithAPIKey(cfg *config.Config, apiKey string) error {
 	spin := ui.NewSpinner("Verifying API key...")
 	spin.Start()
 
@@ -80,7 +152,6 @@ func runAuthLogin(cmd *cobra.Command, args []string) error {
 	}
 	spin.Stop("")
 
-	// Persist credentials.
 	cfg.UserEmail = me.Email
 	cfg.UserID = me.ID
 	if err := config.Save(cfg); err != nil {

@@ -74,7 +74,12 @@ func (c *Client) do(method, path string, body interface{}, out interface{}) erro
 		return fmt.Errorf("read response body: %w", err)
 	}
 
-	if resp.StatusCode == http.StatusUnauthorized {
+	// A 401 with no API key set (send-otp/verify-otp, before any credential
+	// exists) means the endpoint itself rejected the request — e.g. a wrong
+	// OTP code — not that the CLI is unauthenticated. Only rewrite the
+	// message to the generic "run auth login" hint when we actually had a
+	// key and the server rejected it.
+	if resp.StatusCode == http.StatusUnauthorized && c.apiKey != "" {
 		return &APIError{
 			StatusCode: 401,
 			Message:    "Not authenticated. Run: agentctl auth login",
@@ -136,6 +141,43 @@ func (c *Client) GetMe() (*MeResponse, error) {
 		return nil, err
 	}
 	return &me, nil
+}
+
+// SendOTPResponse is the response from POST /v1/auth/send-otp.
+type SendOTPResponse struct {
+	Sent    bool `json:"sent"`
+	DevMode bool `json:"dev_mode"`
+}
+
+// SendOTP requests a one-time sign-in code be emailed to the given address.
+// No API key is required — this is a public, unauthenticated endpoint.
+func (c *Client) SendOTP(email string) (*SendOTPResponse, error) {
+	var res SendOTPResponse
+	if err := c.do("POST", "/v1/auth/send-otp", map[string]string{"email": email}, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+// VerifyOTPResponse is the response from POST /v1/auth/verify-otp.
+type VerifyOTPResponse struct {
+	User struct {
+		ID    string `json:"id"`
+		Email string `json:"email"`
+		Plan  string `json:"plan"`
+	} `json:"user"`
+	APIKey string `json:"apiKey"`
+	IsNew  bool   `json:"isNew"`
+}
+
+// VerifyOTP exchanges an emailed one-time code for a fresh, persistent API
+// key — this is how both new signups and returning logins get credentials.
+func (c *Client) VerifyOTP(email, code string) (*VerifyOTPResponse, error) {
+	var res VerifyOTPResponse
+	if err := c.do("POST", "/v1/auth/verify-otp", map[string]string{"email": email, "code": code}, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
 }
 
 // ── Agents ───────────────────────────────────────────────────────────────────
