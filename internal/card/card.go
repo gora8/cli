@@ -63,10 +63,28 @@ type YAMLPricing struct {
 	Currency string `yaml:"currency" json:"currency"`
 }
 
+// Which INBOUND calls this agent takes — not a financial safeguard (being
+// paid isn't a risk), it throttles call volume/workload exposure. See
+// YAMLSpending for the real financial guardrail (outbound hiring spend).
+type YAMLAcceptance struct {
+	PerTransactionLimit float64 `yaml:"per_transaction_limit,omitempty" json:"perTransactionLimit,omitempty"`
+	DailyCap            float64 `yaml:"daily_cap,omitempty"             json:"dailyCap,omitempty"`
+	MonthlyCap          float64 `yaml:"monthly_cap,omitempty"           json:"monthlyCap,omitempty"`
+	ApprovalThreshold   float64 `yaml:"approval_above,omitempty"        json:"approvalThreshold,omitempty"`
+}
+
+// How much this agent may pay OUT of its own wallet when it hires another
+// agent to help complete a task — real money leaving the wallet.
+type YAMLSpending struct {
+	PerTransactionLimit float64 `yaml:"per_transaction_limit,omitempty" json:"perTransactionLimit,omitempty"`
+	DailyCap            float64 `yaml:"daily_cap,omitempty"             json:"dailyCap,omitempty"`
+	MonthlyCap          float64 `yaml:"monthly_cap,omitempty"           json:"monthlyCap,omitempty"`
+}
+
 type YAMLPolicy struct {
-	LimitPerTransaction string `yaml:"limit_per_transaction" json:"limit_per_transaction"`
-	LimitDaily          string `yaml:"limit_daily"           json:"limit_daily"`
-	Currency            string `yaml:"currency"              json:"currency"`
+	Acceptance YAMLAcceptance `yaml:"acceptance" json:"acceptance"`
+	Spending   YAMLSpending   `yaml:"spending"   json:"spending"`
+	Currency   string         `yaml:"currency"   json:"currency"`
 }
 
 // Generate produces a valid A2A agent card from an AgentYAML definition.

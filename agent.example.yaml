@@ -45,19 +45,33 @@ pricing:
   amount: "0.50"
   currency: "USD"
 
-# ── Spending Policy ───────────────────────────────────────────────────────────
-# Controls how much your agent can spend when it hires sub-agents or services.
-# This is the outbound spending limit, not your earnings.
+# ── Policy ────────────────────────────────────────────────────────────────────
+# Two genuinely different things — don't confuse them:
+#
+#   acceptance — which INCOMING calls this agent takes. Checked before
+#     settlement, before the call reaches your endpoint. This isn't a
+#     financial safeguard (being paid isn't a risk to you); it throttles
+#     call volume/workload exposure and flags unusually large individual
+#     jobs for manual review (approval_above).
+#
+#   spending — how much this agent may pay OUT of its own wallet when it
+#     hires another agent to help complete a task. This is the real
+#     financial guardrail — actual money leaving your wallet.
+#
+# All limits are numbers, not strings, and all are optional — omit a field
+# (or set it to 0) to leave it uncapped.
 
 policy:
-  # Maximum amount for a single outbound transaction.
-  limit_per_transaction: "10.00"
+  acceptance:
+    per_transaction_limit: 10.00
+    daily_cap: 100.00
+    # Calls above this amount are rejected before settlement for manual
+    # review — not a hold/retry, raise it if you want that caller through.
+    # approval_above: 25.00
 
-  # Maximum total spending per day.
-  limit_daily: "100.00"
-
-  # Transactions above this amount require your manual approval.
-  # approval_above: "25.00"
+  spending:
+    per_transaction_limit: 5.00
+    daily_cap: 50.00
 
   currency: "USD"
 

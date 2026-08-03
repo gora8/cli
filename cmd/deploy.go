@@ -119,9 +119,18 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 			Currency: agentConfig.Pricing.Currency,
 		},
 		Policy: api.PolicyConfig{
-			LimitPerTransaction: agentConfig.Policy.LimitPerTransaction,
-			LimitDaily:          agentConfig.Policy.LimitDaily,
-			Currency:            agentConfig.Policy.Currency,
+			Acceptance: &api.AcceptanceLimits{
+				PerTransactionLimit: agentConfig.Policy.Acceptance.PerTransactionLimit,
+				DailyCap:            agentConfig.Policy.Acceptance.DailyCap,
+				MonthlyCap:          agentConfig.Policy.Acceptance.MonthlyCap,
+				ApprovalThreshold:   agentConfig.Policy.Acceptance.ApprovalThreshold,
+			},
+			Spending: &api.SpendingLimits{
+				PerTransactionLimit: agentConfig.Policy.Spending.PerTransactionLimit,
+				DailyCap:            agentConfig.Policy.Spending.DailyCap,
+				MonthlyCap:          agentConfig.Policy.Spending.MonthlyCap,
+			},
+			Currency: agentConfig.Policy.Currency,
 		},
 		Registries: agentConfig.Registries,
 		A2ACard:    a2aCard,

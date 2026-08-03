@@ -233,12 +233,40 @@ type Pricing struct {
 	Currency string `json:"currency"`
 }
 
+// AcceptanceLimits control which INBOUND calls this agent takes — checked
+// before settlement, before the call reaches the owner's endpoint. Not a
+// financial safeguard (being paid isn't a risk); it throttles call
+// volume/workload exposure and flags unusually large individual jobs for
+// review (ApprovalThreshold).
+type AcceptanceLimits struct {
+	PerTransactionLimit float64 `json:"perTransactionLimit,omitempty"`
+	DailyCap            float64 `json:"dailyCap,omitempty"`
+	MonthlyCap          float64 `json:"monthlyCap,omitempty"`
+	ApprovalThreshold   float64 `json:"approvalThreshold,omitempty"`
+}
+
+// SpendingLimits control how much this agent may pay OUT of its own wallet
+// when it hires another agent (see `gora8 wallet transactions` for hire
+// records) — the real financial guardrail, unlike AcceptanceLimits.
+type SpendingLimits struct {
+	PerTransactionLimit float64 `json:"perTransactionLimit,omitempty"`
+	DailyCap            float64 `json:"dailyCap,omitempty"`
+	MonthlyCap          float64 `json:"monthlyCap,omitempty"`
+}
+
+// PolicyConfig fields are sent/received as real JSON numbers, not strings —
+// the backend's enforcement checks require `typeof x === "number"`.
+//
+// PATCH /v1/agents/:id/policy replaces the whole stored policy, not a
+// partial merge — AllowedCounterparties is here (even though the CLI has
+// no flag to set it) purely so a round-trip GetPolicy -> modify -> SetPolicy
+// doesn't silently wipe out a value set from the web dashboard.
 type PolicyConfig struct {
-	LimitPerTransaction string `json:"limit_per_transaction"`
-	LimitDaily          string `json:"limit_daily"`
-	LimitMonthly        string `json:"limit_monthly,omitempty"`
-	ApprovalAbove       string `json:"approval_above,omitempty"`
-	Currency            string `json:"currency"`
+	Suspended             bool              `json:"suspended,omitempty"`
+	Acceptance            *AcceptanceLimits `json:"acceptance,omitempty"`
+	Spending              *SpendingLimits   `json:"spending,omitempty"`
+	Currency              string            `json:"currency,omitempty"`
+	AllowedCounterparties []string          `json:"allowedCounterparties,omitempty"`
 }
 
 // DeployResponse is the response from POST /v1/agents.
