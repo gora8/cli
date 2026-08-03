@@ -73,9 +73,13 @@ var walletShowCmd = &cobra.Command{
 		ui.Header("Wallets")
 		rows := make([][]string, 0, len(wallets))
 		for _, w := range wallets {
+			address := w.Address
+			if len(w.Address) > 16 {
+				address = w.Address[:10] + "..." + w.Address[len(w.Address)-6:]
+			}
 			rows = append(rows, []string{
 				w.AgentName,
-				w.Address[:10] + "..." + w.Address[len(w.Address)-6:],
+				address,
 				fmt.Sprintf("%.2f %s", w.Balance, w.Currency),
 				fmt.Sprintf("%.2f %s", w.Pending, w.Currency),
 				w.Network,
@@ -120,13 +124,30 @@ var walletTransactionsCmd = &cobra.Command{
 			if t.Direction == "out" {
 				direction = "← out"
 			}
+			if t.CounterpartyAgentName != "" {
+				if t.Direction == "out" {
+					direction = "← hired"
+				} else {
+					direction = "→ hired by"
+				}
+			}
+			counterparty := t.Counterparty
+			if t.CounterpartyAgentName != "" {
+				counterparty = t.CounterpartyAgentName
+			}
+			txHash := "—"
+			if len(t.TxHash) >= 8 {
+				txHash = t.TxHash[:8] + "..."
+			} else if t.TxHash != "" {
+				txHash = t.TxHash
+			}
 			rows = append(rows, []string{
 				t.Timestamp,
 				direction,
 				fmt.Sprintf("%.4f %s", t.Amount, t.Currency),
-				t.Counterparty,
+				counterparty,
 				t.Capability,
-				t.TxHash[:8] + "...",
+				txHash,
 			})
 		}
 		ui.Table([]string{"Time", "Dir", "Amount", "From", "Capability", "Tx"}, rows)

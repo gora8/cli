@@ -425,8 +425,13 @@ type WalletTransaction struct {
 	Amount       float64 `json:"amount"`
 	Currency     string  `json:"currency"`
 	Counterparty string  `json:"counterparty"`
-	Capability   string  `json:"capability"`
-	TxHash       string  `json:"tx_hash"`
+	// Set only for a real agent-to-agent hire (see POST /v1/agents/:id/hire)
+	// — empty for an external caller paying in or a withdrawal to an
+	// arbitrary address.
+	CounterpartyAgentID   string `json:"counterparty_agent_id"`
+	CounterpartyAgentName string `json:"counterparty_agent_name"`
+	Capability            string `json:"capability"`
+	TxHash                string `json:"tx_hash"`
 }
 
 type WithdrawRequest struct {
