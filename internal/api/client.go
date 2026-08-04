@@ -645,3 +645,20 @@ func (c *Client) MarkNotificationRead(id string) error {
 func (c *Client) MarkAllNotificationsRead() error {
 	return c.do("POST", "/v1/notifications/read-all", nil, nil)
 }
+
+type CheckoutResponse struct {
+	URL string `json:"url"`
+}
+
+// CreateCheckoutSession returns a real Stripe Checkout URL — the CLI
+// itself never touches payment details, it just opens the browser to
+// Stripe's own hosted page. This is free-tier users' one path off the CLI
+// while still being free-tier (the web dashboard proper is blocked for
+// them, see api/src/middleware/auth.ts).
+func (c *Client) CreateCheckoutSession() (*CheckoutResponse, error) {
+	var resp CheckoutResponse
+	if err := c.do("POST", "/v1/billing/checkout", nil, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
