@@ -91,6 +91,11 @@ func runPublish(cmd *cobra.Command, args []string) error {
 			}
 			ui.Error(fmt.Sprintf("%-10s %s", result.Registry, errMsg))
 		}
+		// Pre-publish signals (low success rate, open disputes, no call
+		// history yet) — non-blocking, shown even on a successful publish.
+		for _, w := range result.Warnings {
+			ui.Warning(fmt.Sprintf("           %s", w))
+		}
 	}
 
 	fmt.Println()

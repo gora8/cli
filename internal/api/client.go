@@ -321,10 +321,11 @@ type PublishRequest struct {
 }
 
 type PublishResult struct {
-	Registry string `json:"registry"`
-	Status   string `json:"status"`
-	URL      string `json:"url"`
-	Error    string `json:"error,omitempty"`
+	Registry string   `json:"registry"`
+	Status   string   `json:"status"`
+	URL      string   `json:"url"`
+	Error    string   `json:"error,omitempty"`
+	Warnings []string `json:"warnings,omitempty"`
 }
 
 type PublishResponse struct {
