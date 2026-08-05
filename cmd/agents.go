@@ -151,9 +151,18 @@ var agentsDeleteForce bool
 
 var agentsDeleteCmd = &cobra.Command{
 	Use:   "delete [agent-id]",
-	Short: "Delete an agent permanently",
-	Args:  cobra.ExactArgs(1),
-	RunE:  runAgentsDelete,
+	Short: "Delete an agent",
+	Long: `Delete an agent.
+
+This stops the agent — it can no longer be invoked, hired, or found in the
+directory, same as if you'd never deployed it — but its transaction and
+dispute history is kept, not erased. If someone paid this agent and files a
+dispute after you delete it, you can still respond and the dispute still
+resolves normally. This also frees up your deploy slot on the free plan.
+
+There's no "undelete" — once deleted, an agent stays deleted.`,
+	Args: cobra.ExactArgs(1),
+	RunE: runAgentsDelete,
 }
 
 func runAgentsDelete(cmd *cobra.Command, args []string) error {
@@ -169,8 +178,8 @@ func runAgentsDelete(cmd *cobra.Command, args []string) error {
 	agentID := args[0]
 
 	if !agentsDeleteForce {
-		ui.Warning(fmt.Sprintf("You are about to permanently delete agent: %s", ui.Bold(agentID)))
-		ui.Warning("This action cannot be undone. The agent wallet will be deactivated.")
+		ui.Warning(fmt.Sprintf("You are about to delete agent: %s", ui.Bold(agentID)))
+		ui.Warning("It will stop being invokable/hireable and drop out of the directory. Its transaction and dispute history is kept, not erased — there's no undelete.")
 		fmt.Print("  Type the agent ID to confirm: ")
 
 		scanner := bufio.NewScanner(os.Stdin)
