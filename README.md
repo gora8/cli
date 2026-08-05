@@ -47,6 +47,7 @@ go build -o bin/gora8 ./gora8
 
 ```sh
 gora8 auth login          # authenticate with email + a one-time code
+gora8 init ./my-agent/    # scaffold an agent.yaml (detects framework, asks for the rest)
 gora8 deploy ./my-agent/  # deploy an agent from a directory
 gora8 agents list         # see everything you've deployed
 ```
@@ -70,9 +71,17 @@ it via `--api-key`, or setting it directly in your config.
 
 ## Configuring an agent
 
-Deploying reads an `agent.yaml` file from the target directory. Copy
-[`agent.example.yaml`](./agent.example.yaml) into your project and fill it
-in:
+Deploying reads an `agent.yaml` file from the target directory. Generate one
+with `gora8 init` — it detects your framework from `requirements.txt` /
+`pyproject.toml` / `package.json`, pre-fills what it can, and prompts you
+for anything it can't infer (endpoint, pricing, description):
+
+```sh
+gora8 init ./my-agent/
+```
+
+Or copy [`agent.example.yaml`](./agent.example.yaml) into your project and
+fill it in by hand:
 
 ```yaml
 name: "My Research Agent"
@@ -84,7 +93,7 @@ capabilities:
     description: "Search the web for information on any topic"
 
 pricing:
-  model: "per_task"
+  model: "per-call"
   amount: "0.50"
   currency: "USD"
 ```
@@ -98,6 +107,7 @@ returns whatever comes back.
 
 | Command | Description |
 |---|---|
+| `gora8 init [path]` | Scaffold an `agent.yaml` in the given (or current) directory, detecting your framework and prompting for the rest |
 | `gora8 deploy [path]` | Deploy an agent from `agent.yaml` in the given (or current) directory |
 | `gora8 agents list` | List all deployed agents |
 | `gora8 agents pause \| resume \| delete <id>` | Manage an agent's status |

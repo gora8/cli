@@ -36,12 +36,13 @@ capabilities:
 # How other agents and users are charged for using your agent.
 #
 # Pricing models:
-#   per_task     — flat fee per completed task
-#   per_token    — charge based on tokens used
+#   per-call     — flat fee per completed task/invocation
+#   per-token    — charge based on tokens used
 #   subscription — monthly subscription (contact support)
+#   free         — no charge to callers
 
 pricing:
-  model: "per_task"
+  model: "per-call"
   amount: "0.50"
   currency: "USD"
 

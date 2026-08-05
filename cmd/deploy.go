@@ -82,6 +82,9 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 	if deployPrice != "" {
 		agentConfig.Pricing.Amount = deployPrice
 	}
+	if err := validatePricingModel(agentConfig.Pricing.Model); err != nil {
+		return err
+	}
 	if deployRegistries != "" {
 		agentConfig.Registries = strings.Split(deployRegistries, ",")
 	}
@@ -184,6 +187,23 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 	fmt.Println()
 	ui.Info("Run `gora8 agents list` to see all your agents.")
 	return nil
+}
+
+// validPricingModels mirrors the values the dashboard and API actually
+// recognize (web/app/(app)/agents/[id]/page.tsx) — anything else stores
+// silently as an opaque string that the UI can't render as a selection.
+var validPricingModels = map[string]bool{
+	"per-call":     true,
+	"per-token":    true,
+	"subscription": true,
+	"free":         true,
+}
+
+func validatePricingModel(model string) error {
+	if model == "" || validPricingModels[model] {
+		return nil
+	}
+	return fmt.Errorf("invalid pricing.model %q in agent.yaml — must be one of: per-call, per-token, subscription, free", model)
 }
 
 // loadAgentYAML searches for an agent.yaml (or agent.yml) in the given
