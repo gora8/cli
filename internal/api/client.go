@@ -369,6 +369,43 @@ type EarningsResponse struct {
 	Transactions int              `json:"transactions"`
 }
 
+type InspectCaller struct {
+	Counterparty string  `json:"counterparty"`
+	Name         *string `json:"name"`
+	Calls        int     `json:"calls"`
+	TotalPaid    float64 `json:"total_paid"`
+}
+
+type InspectCapability struct {
+	Capability string `json:"capability"`
+	Calls      int    `json:"calls"`
+}
+
+type InspectResult struct {
+	AgentID           string              `json:"agent_id"`
+	AgentName         string              `json:"agent_name"`
+	Status            string              `json:"status"`
+	SuccessRate       *float64            `json:"success_rate"`
+	ErrorRate         *float64            `json:"error_rate"`
+	AvgResponseMs     *int                `json:"avg_response_ms"`
+	TotalCalls        int                 `json:"total_calls"`
+	EarningsTotal     float64             `json:"earnings_total"`
+	AvgRevenuePerCall *float64            `json:"avg_revenue_per_call"`
+	WalletBalance     float64             `json:"wallet_balance"`
+	WalletStaked      float64             `json:"wallet_staked"`
+	OpenDisputes      int                 `json:"open_disputes"`
+	TopCallers30d     []InspectCaller     `json:"top_callers_30d"`
+	TopCapabilities30d []InspectCapability `json:"top_capabilities_30d"`
+}
+
+func (c *Client) InspectAgent(agentID string) (*InspectResult, error) {
+	var result InspectResult
+	if err := c.do("GET", "/v1/agents/"+agentID+"/inspect", nil, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
 func (c *Client) GetEarnings(agentID, period string) (*EarningsResponse, error) {
 	path := "/v1/earnings"
 	if agentID != "" {
