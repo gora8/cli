@@ -111,6 +111,7 @@ returns whatever comes back.
 | `gora8 deploy [path]` | Deploy an agent from `agent.yaml` in the given (or current) directory |
 | `gora8 agents list` | List all deployed agents |
 | `gora8 agents pause \| resume \| delete <id>` | Manage an agent's status |
+| `gora8 inspect <id>` | One-screen view: success rate, latency, revenue, wallet balance, open disputes, top callers, top capabilities (30d) |
 | `gora8 publish [id]` | Publish an agent to discovery audiences beyond gora8's own directory |
 | `gora8 wallet show [--agent <id>]` | Show wallet address and balance |
 | `gora8 wallet transactions --agent <id>` | Show incoming payment history |
@@ -120,6 +121,7 @@ returns whatever comes back.
 | `gora8 identity show --agent <id>` | Show an agent's `did:web` identity document |
 | `gora8 identity verify <did>` | Resolve and verify any agent's DID |
 | `gora8 identity rotate --agent <id>` | Rotate an agent's signing keys |
+| `gora8 identity passport <id>` | Fetch an agent's signed Agent Passport (identity, collateral, dispute history) |
 | `gora8 policy [id]` | View an agent's spending policy |
 | `gora8 policy set [id] --limit-per-tx <amt> ...` | Update spending limits and approval thresholds |
 | `gora8 logs [id] [--tail N] [--follow]` | View recent agent interactions |
