@@ -582,6 +582,20 @@ func (c *Client) RotateKeys(agentID string) (*KeyRotateResult, error) {
 	return &result, nil
 }
 
+// Passport is deliberately map[string]interface{}, not a typed struct —
+// it's a signed document meant to be verified/consumed as-is (and
+// forward-compatible with fields added later), not decomposed into Go
+// fields that could silently drop something out of the signed payload.
+type Passport = map[string]interface{}
+
+func (c *Client) GetPassport(agentID string) (Passport, error) {
+	var result Passport
+	if err := c.do("GET", "/v1/agents/"+agentID+"/passport", nil, &result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
 // ── Logs ─────────────────────────────────────────────────────────────────────
 
 type LogEntry struct {

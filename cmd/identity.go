@@ -167,9 +167,43 @@ After rotation, the new key is used for all new transaction signatures.`,
 	},
 }
 
+var identityPassportCmd = &cobra.Command{
+	Use:   "passport <agent-id>",
+	Short: "Fetch an agent's signed Agent Passport",
+	Long: `Fetch an agent's Agent Passport — a gora8-signed snapshot of its identity,
+locked collateral, and dispute history.
+
+This is a real, verifiable signature (see GET /.well-known/gora8-issuer-key
+for the public key), and it's a public endpoint — anyone can fetch and
+verify a passport, on gora8 or not, without needing an account here. A
+valid signature proves gora8 issued this document and it wasn't altered
+after signing; it does not by itself prove gora8 is a neutral authority —
+see the Trust & identity section of gora8's roadmap for that distinction.`,
+	Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cfg, err := config.Load()
+		if err != nil {
+			return fmt.Errorf("load config: %w", err)
+		}
+		if !cfg.IsAuthenticated() {
+			ui.Error("Not authenticated. Run: gora8 auth login")
+			return nil
+		}
+
+		client := api.New(cfg)
+		passport, err := client.GetPassport(args[0])
+		if err != nil {
+			return err
+		}
+		ui.Header("Agent Passport")
+		ui.PrintJSON(passport)
+		return nil
+	},
+}
+
 func init() {
 	identityShowCmd.Flags().StringVar(&identityAgentID, "agent", "", "Agent ID")
 	identityRotateCmd.Flags().StringVar(&identityAgentID, "agent", "", "Agent ID")
 
-	identityCmd.AddCommand(identityShowCmd, identityVerifyCmd, identityRotateCmd)
+	identityCmd.AddCommand(identityShowCmd, identityVerifyCmd, identityRotateCmd, identityPassportCmd)
 }
