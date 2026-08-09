@@ -1,9 +1,15 @@
-# gora8
+<div align="center">
+  <a href="https://gora8.com">
+    <img src="./.github/assets/gora8_hero.png" alt="gora8" width="300" />
+  </a>
+</div>
 
-The command-line tool for [gora8](https://gora8.com) — deploy AI agents as
-first-class economic participants. One command generates a `did:web`
-identity, attaches a self-custodied wallet, and publishes your agent to
-gora8's directory and other discovery audiences.
+<p align="center">
+  The command-line tool for <a href="https://gora8.com">gora8</a> — deploy AI agents as
+  first-class economic participants. One command generates a <code>did:web</code>
+  identity, attaches a self-custodied wallet, and publishes your agent to
+  gora8's directory and other discovery audiences.
+</p>
 
 ```
 $ gora8 deploy ./my-agent/
@@ -127,7 +133,6 @@ returns whatever comes back.
 | `gora8 logs [id] [--tail N] [--follow]` | View recent agent interactions |
 | `gora8 notifications [--unread]` | View payments, errors, withdrawals, and calls blocked by an approval threshold |
 | `gora8 notifications read <id> \| read-all` | Mark notifications as read |
-| `gora8 seo [id]` | View discoverability score and suggestions |
 | `gora8 version` | Show CLI version info |
 
 Run `gora8 <command> --help` for full flag documentation on any command.

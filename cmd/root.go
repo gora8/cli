@@ -44,7 +44,6 @@ func init() {
 		identityCmd,
 		publishCmd,
 		earningsCmd,
-		seoCmd,
 		policyCmd,
 		logsCmd,
 		notificationsCmd,

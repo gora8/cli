@@ -421,34 +421,6 @@ func (c *Client) GetEarnings(agentID, period string) (*EarningsResponse, error) 
 	return &resp, nil
 }
 
-// ── SEO ──────────────────────────────────────────────────────────────────────
-
-type SEOIssue struct {
-	Severity    string `json:"severity"`
-	Description string `json:"description"`
-}
-
-type SEOSuggestion struct {
-	Priority    string `json:"priority"`
-	Description string `json:"description"`
-}
-
-type SEOResponse struct {
-	AgentID     string          `json:"agent_id"`
-	AgentName   string          `json:"agent_name"`
-	Score       int             `json:"score"`
-	Issues      []SEOIssue      `json:"issues"`
-	Suggestions []SEOSuggestion `json:"suggestions"`
-}
-
-func (c *Client) GetSEO(agentID string) (*SEOResponse, error) {
-	var resp SEOResponse
-	if err := c.do("GET", "/v1/agents/"+agentID+"/seo", nil, &resp); err != nil {
-		return nil, err
-	}
-	return &resp, nil
-}
-
 // ── Policy ───────────────────────────────────────────────────────────────────
 
 type PolicyResponse struct {

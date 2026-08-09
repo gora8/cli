@@ -168,16 +168,3 @@ func StatusColor(status string) string {
 		return status
 	}
 }
-
-// ScoreColor returns a colored score string based on value.
-func ScoreColor(score int) string {
-	s := fmt.Sprintf("%d/100", score)
-	switch {
-	case score > 80:
-		return color.GreenString(s)
-	case score >= 50:
-		return color.YellowString(s)
-	default:
-		return color.RedString(s)
-	}
-}
