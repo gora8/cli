@@ -31,8 +31,23 @@ Deploying Agent
 
 ## Install
 
-Download a prebuilt binary from the [latest release](https://github.com/gora8/cli/releases/latest)
-(macOS, Linux, Windows — amd64 and arm64), or install with Go:
+Three ways to get `gora8` — pick whichever fits your setup:
+
+**pip** (any platform with Python 3.8+):
+
+```sh
+pip install gora8-cli
+```
+
+This installs a small launcher that downloads the real `gora8` binary for
+your platform from this repo's [releases](https://github.com/gora8/cli/releases)
+on first run, verifies it against the release's published checksums, and
+caches it — every run after that execs the cached binary directly.
+
+**Prebuilt binary**: download one from the [latest release](https://github.com/gora8/cli/releases/latest)
+(macOS, Linux, Windows — amd64 and arm64).
+
+**Go**:
 
 ```sh
 go install github.com/gora8/cli/gora8@latest
