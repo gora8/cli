@@ -382,19 +382,19 @@ type InspectCapability struct {
 }
 
 type InspectResult struct {
-	AgentID           string              `json:"agent_id"`
-	AgentName         string              `json:"agent_name"`
-	Status            string              `json:"status"`
-	SuccessRate       *float64            `json:"success_rate"`
-	ErrorRate         *float64            `json:"error_rate"`
-	AvgResponseMs     *int                `json:"avg_response_ms"`
-	TotalCalls        int                 `json:"total_calls"`
-	EarningsTotal     float64             `json:"earnings_total"`
-	AvgRevenuePerCall *float64            `json:"avg_revenue_per_call"`
-	WalletBalance     float64             `json:"wallet_balance"`
-	WalletStaked      float64             `json:"wallet_staked"`
-	OpenDisputes      int                 `json:"open_disputes"`
-	TopCallers30d     []InspectCaller     `json:"top_callers_30d"`
+	AgentID            string              `json:"agent_id"`
+	AgentName          string              `json:"agent_name"`
+	Status             string              `json:"status"`
+	SuccessRate        *float64            `json:"success_rate"`
+	ErrorRate          *float64            `json:"error_rate"`
+	AvgResponseMs      *int                `json:"avg_response_ms"`
+	TotalCalls         int                 `json:"total_calls"`
+	EarningsTotal      float64             `json:"earnings_total"`
+	AvgRevenuePerCall  *float64            `json:"avg_revenue_per_call"`
+	WalletBalance      float64             `json:"wallet_balance"`
+	WalletStaked       float64             `json:"wallet_staked"`
+	OpenDisputes       int                 `json:"open_disputes"`
+	TopCallers30d      []InspectCaller     `json:"top_callers_30d"`
 	TopCapabilities30d []InspectCapability `json:"top_capabilities_30d"`
 }
 
