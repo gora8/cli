@@ -25,12 +25,19 @@ var (
 var deployCmd = &cobra.Command{
 	Use:   "deploy [path]",
 	Short: "Deploy an agent to gora8",
-	Long: `Deploy an AI agent to gora8 and make it a first-class economic participant.
+	Long: `Deploy an AI agent as an economic participant, not just a running process.
 
-The deploy command reads your agent.yaml configuration, generates an A2A agent
-card, registers the agent's identity and wallet, and publishes it to gora8's
-own directory by default (free, instant, no external dependency). Run
-'gora8 publish' separately to reach other audiences like x402 Bazaar.
+One command: an A2A agent card is generated, the agent's identity is
+registered, a self-custodied wallet is attached, and a spending Mandate is
+issued with the limits from your agent.yaml policy — a signed document a
+counterparty can verify independently, not a promise your agent's own code
+makes to itself (see 'gora8 mandate' and github.com/gora8/mandate-protocol).
+None of this requires any other agent to exist yet: your agent can be paid
+and can spend, safely, starting with its very first transaction.
+
+By default the agent publishes to gora8's own directory (free, instant, no
+external dependency). Run 'gora8 publish' separately to reach other
+audiences like x402 Bazaar.
 
 Examples:
   gora8 deploy                      # Deploy from current directory
@@ -151,7 +158,7 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 		spin2.Fail("Deployment failed")
 		return err
 	}
-	spin2.Stop("Agent registered — identity and wallet attached")
+	spin2.Stop("Agent registered — identity, wallet, and spending Mandate attached")
 
 	// Step 3: Publish to the configured audiences (gora8's own directory by
 	// default — free and instant, no external dependency).
@@ -175,6 +182,15 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 	if resp.WalletAddr != "" {
 		details = append(details, []string{"Wallet", resp.WalletAddr})
 	}
+	if resp.MandateID != "" {
+		details = append(details, []string{"Mandate", resp.MandateID})
+	}
+	if resp.Agent.ActorRef != nil {
+		// Not populated by the current API — see the ActorRef doc comment
+		// in internal/api/client.go. Rendered defensively so this command
+		// doesn't need another code change the day it is.
+		details = append(details, []string{"Identity", fmt.Sprintf("%s:%s", resp.Agent.ActorRef.Namespace, resp.Agent.ActorRef.ActorID)})
+	}
 	dashURL := resp.DashboardURL
 	if dashURL == "" && resp.Agent.ID != "" {
 		dashURL = fmt.Sprintf("https://app.gora8.com/agents/%s", resp.Agent.ID)
@@ -186,6 +202,7 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 	}
 	fmt.Println()
 	ui.Info("Run `gora8 agents list` to see all your agents.")
+	ui.Info(fmt.Sprintf("Run `gora8 mandate %s` to see and verify its spending Mandate.", resp.Agent.ID))
 	return nil
 }
 

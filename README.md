@@ -7,8 +7,12 @@
 <p align="center">
   The command-line tool for <a href="https://gora8.com">gora8</a> — deploy AI agents as
   first-class economic participants. One command generates a <code>did:web</code>
-  identity, attaches a self-custodied wallet, and publishes your agent to
-  gora8's directory and other discovery audiences.
+  identity, attaches a self-custodied wallet, issues a signed spending
+  <a href="https://github.com/gora8/mandate-protocol">Mandate</a>, and publishes your
+  agent to gora8's directory and other discovery audiences. No other agent needs to
+  exist yet — your agent can be paid and can spend, safely, starting with its first
+  transaction. See <a href="https://github.com/gora8/protocol">gora8/protocol</a> for
+  the open specification this CLI implements.
 </p>
 
 ```
@@ -18,7 +22,7 @@ Deploying Agent
 ℹ Config: ./my-agent/agent.yaml
 
 ✓ A2A agent card generated
-✓ Agent registered — identity and wallet attached
+✓ Agent registered — identity, wallet, and spending Mandate attached
 ✓ Published
 
 ✓ Agent My Research Agent deployed successfully!
@@ -26,7 +30,11 @@ Deploying Agent
   Agent ID      cmsc0v48t002doccbuegtmv7n
   Status        active
   Wallet        0xa7119Ea4892733Be3B632d7601a7701F9288BC08
+  Mandate       mandate:cmsc0v48t002doccbuegtmv7n:a1b2c3
   Dashboard     https://app.gora8.com/agents/cmsc0v48t002doccbuegtmv7n
+
+ℹ Run `gora8 agents list` to see all your agents.
+ℹ Run `gora8 mandate cmsc0v48t002doccbuegtmv7n` to see and verify its spending Mandate.
 ```
 
 ## Install
@@ -143,6 +151,7 @@ returns whatever comes back.
 | `gora8 identity verify <did>` | Resolve and verify any agent's DID |
 | `gora8 identity rotate --agent <id>` | Rotate an agent's signing keys |
 | `gora8 identity passport <id>` | Fetch an agent's signed Agent Passport (identity, collateral, dispute history) |
+| `gora8 mandate <id>` | Fetch and verify an agent's signed spending Mandate — see [`gora8/mandate-protocol`](https://github.com/gora8/mandate-protocol) |
 | `gora8 policy [id]` | View an agent's spending policy |
 | `gora8 policy set [id] --limit-per-tx <amt> ...` | Update spending limits and approval thresholds |
 | `gora8 logs [id] [--tail N] [--follow]` | View recent agent interactions |

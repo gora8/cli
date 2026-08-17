@@ -206,6 +206,27 @@ type Agent struct {
 	Transactions int     `json:"transactions"`
 	LastActive   string  `json:"last_active"`
 	CreatedAt    string  `json:"created_at"`
+
+	// ActorRef and MandateID are additive fields anticipating the protocol
+	// described in github.com/gora8/protocol and github.com/gora8/mandate-protocol
+	// (ERC-8004-referenced identity, on-chain Authority). Both are
+	// `omitempty`/pointer so this struct stays wire-compatible with the
+	// current API, which does not populate them yet — Phase 1 of
+	// EXECUTION_ROADMAP.md (on-chain core) has not been deployed anywhere,
+	// including testnet. Nil/empty here means "not yet issued on-chain,"
+	// not "absent from the protocol."
+	ActorRef *ActorRef `json:"actor_ref,omitempty"`
+}
+
+// ActorRef identifies an actor by reference to an external identity
+// registry rather than a gora8-issued ID — see gora8/protocol SPEC.md §2.
+// Today gora8 issues a did:web identity directly; ActorRef is the
+// forward-compatible shape for when identity is minted/attached via
+// ERC-8004 instead (namespace "eip155-erc8004").
+type ActorRef struct {
+	Namespace string `json:"namespace"`
+	Registry  string `json:"registry"`
+	ActorID   string `json:"actorId"`
 }
 
 // DeployRequest is the payload for POST /v1/agents.
@@ -274,6 +295,12 @@ type DeployResponse struct {
 	Agent        Agent  `json:"agent"`
 	DashboardURL string `json:"dashboard_url"`
 	WalletAddr   string `json:"wallet_address"`
+	// MandateID references the signed spending Mandate issued for this
+	// agent at deploy time (see github.com/gora8/mandate-protocol and
+	// `gora8 mandate`, below). Omitempty: only rendered if the API
+	// populates it — verify against a real deploy response before
+	// assuming this field is live.
+	MandateID string `json:"mandate_id,omitempty"`
 }
 
 func (c *Client) DeployAgent(req *DeployRequest) (*DeployResponse, error) {
@@ -600,6 +627,26 @@ type Passport = map[string]interface{}
 func (c *Client) GetPassport(agentID string) (Passport, error) {
 	var result Passport
 	if err := c.do("GET", "/v1/agents/"+agentID+"/passport", nil, &result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+// Mandate is deliberately map[string]interface{}, for the same reason as
+// Passport above: it's a signed document (see github.com/gora8/mandate-protocol
+// SPEC.md §3.1) meant to be verified/consumed as-is, not decomposed into Go
+// fields that could silently drop something out of the signed payload.
+type Mandate = map[string]interface{}
+
+// GetMandate fetches an agent's current spending Mandate — the same
+// public, unauthenticated endpoint documented in
+// github.com/gora8/mandate-protocol's README ("a counterparty doesn't need
+// a gora8 account to verify an agent's spending authority before dealing
+// with it"). Authenticated here anyway since every other CLI command
+// requires it, but the endpoint itself imposes no such requirement.
+func (c *Client) GetMandate(agentID string) (Mandate, error) {
+	var result Mandate
+	if err := c.do("GET", "/v1/agents/"+agentID+"/mandate", nil, &result); err != nil {
 		return nil, err
 	}
 	return result, nil
