@@ -13,7 +13,7 @@ var mandateCmd = &cobra.Command{
 	Use:   "mandate <agent-id>",
 	Short: "Fetch and display an agent's current spending Mandate",
 	Long: `Fetch an agent's Mandate — the signed document representing its current
-spending authority (see github.com/gora8/protocol).
+spending authority (see github.com/gora8/symbolon).
 
 This is not the same thing as 'gora8 policy', even though both describe
 spending limits: policy is what you set; the Mandate is the signed,
@@ -62,7 +62,7 @@ func runMandate(cmd *cobra.Command, args []string) error {
 	ui.PrintJSON(mandate)
 	fmt.Println()
 	ui.Info("Verify this signature independently against the issuer key at")
-	ui.Info("GET /.well-known/gora8-issuer-key — see github.com/gora8/protocol")
+	ui.Info("GET /.well-known/gora8-issuer-key — see github.com/gora8/symbolon")
 	ui.Info("for the canonicalization and verification algorithm.")
 	return nil
 }

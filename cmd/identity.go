@@ -178,7 +178,7 @@ for the public key), and it's a public endpoint — anyone can fetch and
 verify a passport, on gora8 or not, without needing an account here. A
 valid signature proves gora8 issued this document and it wasn't altered
 after signing; it does not by itself prove gora8 is a neutral authority —
-see github.com/gora8/protocol for the Reputation primitive that
+see github.com/gora8/symbolon for the Reputation primitive that
 distinction is built around.`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
