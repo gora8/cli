@@ -208,7 +208,7 @@ type Agent struct {
 	CreatedAt    string  `json:"created_at"`
 
 	// ActorRef and MandateID are additive fields anticipating the protocol
-	// described in github.com/gora8/protocol and github.com/gora8/mandate-protocol
+	// described in github.com/gora8/protocol
 	// (ERC-8004-referenced identity, on-chain Authority). Both are
 	// `omitempty`/pointer so this struct stays wire-compatible with the
 	// current API, which does not populate them yet — Phase 1 of
@@ -296,7 +296,7 @@ type DeployResponse struct {
 	DashboardURL string `json:"dashboard_url"`
 	WalletAddr   string `json:"wallet_address"`
 	// MandateID references the signed spending Mandate issued for this
-	// agent at deploy time (see github.com/gora8/mandate-protocol and
+	// agent at deploy time (see github.com/gora8/protocol and
 	// `gora8 mandate`, below). Omitempty: only rendered if the API
 	// populates it — verify against a real deploy response before
 	// assuming this field is live.
@@ -633,17 +633,18 @@ func (c *Client) GetPassport(agentID string) (Passport, error) {
 }
 
 // Mandate is deliberately map[string]interface{}, for the same reason as
-// Passport above: it's a signed document (see github.com/gora8/mandate-protocol
-// SPEC.md §3.1) meant to be verified/consumed as-is, not decomposed into Go
-// fields that could silently drop something out of the signed payload.
+// Passport above: it's a signed document (see github.com/gora8/protocol
+// SPEC.md §4.2, "Mandate object") meant to be verified/consumed as-is, not
+// decomposed into Go fields that could silently drop something out of the
+// signed payload.
 type Mandate = map[string]interface{}
 
-// GetMandate fetches an agent's current spending Mandate — the same
-// public, unauthenticated endpoint documented in
-// github.com/gora8/mandate-protocol's README ("a counterparty doesn't need
-// a gora8 account to verify an agent's spending authority before dealing
-// with it"). Authenticated here anyway since every other CLI command
-// requires it, but the endpoint itself imposes no such requirement.
+// GetMandate fetches an agent's current spending Mandate — a public,
+// unauthenticated endpoint (see github.com/gora8/protocol SPEC.md §4):
+// a counterparty doesn't need a gora8 account to verify an agent's
+// spending authority before dealing with it. Authenticated here anyway
+// since every other CLI command requires it, but the endpoint itself
+// imposes no such requirement.
 func (c *Client) GetMandate(agentID string) (Mandate, error) {
 	var result Mandate
 	if err := c.do("GET", "/v1/agents/"+agentID+"/mandate", nil, &result); err != nil {

@@ -171,14 +171,15 @@ var identityPassportCmd = &cobra.Command{
 	Use:   "passport <agent-id>",
 	Short: "Fetch an agent's signed Agent Passport",
 	Long: `Fetch an agent's Agent Passport — a gora8-signed snapshot of its identity,
-locked collateral, and dispute history.
+locked collateral, and dispute history: Reputation evidence, not a score.
 
 This is a real, verifiable signature (see GET /.well-known/gora8-issuer-key
 for the public key), and it's a public endpoint — anyone can fetch and
 verify a passport, on gora8 or not, without needing an account here. A
 valid signature proves gora8 issued this document and it wasn't altered
 after signing; it does not by itself prove gora8 is a neutral authority —
-see the Trust & identity section of gora8's roadmap for that distinction.`,
+see github.com/gora8/protocol for the Reputation primitive that
+distinction is built around.`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.Load()
