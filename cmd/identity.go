@@ -177,9 +177,11 @@ This is a real, verifiable signature (see GET /.well-known/gora8-issuer-key
 for the public key), and it's a public endpoint — anyone can fetch and
 verify a passport, on gora8 or not, without needing an account here. A
 valid signature proves gora8 issued this document and it wasn't altered
-after signing; it does not by itself prove gora8 is a neutral authority —
-see github.com/gora8/symbolon for the Reputation primitive that
-distinction is built around.`,
+after signing; it does not by itself prove the underlying facts are
+grounded rather than self-asserted — each event is tagged with how
+strong its evidence actually is (self-asserted, counterparty-asserted,
+economically grounded, validator-attested, or resolution-grounded), so
+check that tag before trusting a claim.`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.Load()

@@ -31,7 +31,9 @@ One command: an A2A agent card is generated, the agent's identity is
 registered, a self-custodied wallet is attached, and a spending Mandate is
 issued with the limits from your agent.yaml policy — a signed document a
 counterparty can verify independently, not a promise your agent's own code
-makes to itself (see 'gora8 mandate' and github.com/gora8/symbolon).
+makes to itself (see 'gora8 mandate'). Note: this currently proves the
+Mandate exists and hasn't been revoked, not that the wallet is
+structurally prevented from exceeding it — enforcement is on the roadmap.
 None of this requires any other agent to exist yet: your agent can be paid
 and can spend, safely, starting with its very first transaction.
 

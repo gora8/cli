@@ -8,11 +8,10 @@
   The command-line tool for <a href="https://gora8.com">gora8</a> — deploy AI agents as
   first-class economic participants. One command generates a <code>did:web</code>
   identity, attaches a self-custodied wallet, issues a signed spending
-  <a href="https://github.com/gora8/symbolon">Mandate</a>, and publishes your
+  Mandate, and publishes your
   agent to gora8's directory and other discovery audiences. No other agent needs to
   exist yet — your agent can be paid and can spend, safely, starting with its first
-  transaction. See the <a href="https://github.com/gora8/symbolon">Symbolon Protocol</a> for
-  the open specification this CLI implements.
+  transaction.
 </p>
 
 ```
@@ -151,7 +150,7 @@ returns whatever comes back.
 | `gora8 identity verify <did>` | Resolve and verify any agent's DID |
 | `gora8 identity rotate --agent <id>` | Rotate an agent's signing keys |
 | `gora8 identity passport <id>` | Fetch an agent's signed Agent Passport (identity, collateral, dispute history) |
-| `gora8 mandate <id>` | Fetch and verify an agent's signed spending Mandate — see [Symbolon Protocol](https://github.com/gora8/symbolon) |
+| `gora8 mandate <id>` | Fetch and verify an agent's signed spending Mandate |
 | `gora8 policy [id]` | View an agent's spending policy |
 | `gora8 policy set [id] --limit-per-tx <amt> ...` | Update spending limits and approval thresholds |
 | `gora8 logs [id] [--tail N] [--follow]` | View recent agent interactions |

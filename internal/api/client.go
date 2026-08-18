@@ -207,26 +207,41 @@ type Agent struct {
 	LastActive   string  `json:"last_active"`
 	CreatedAt    string  `json:"created_at"`
 
-	// ActorRef and MandateID are additive fields anticipating the protocol
-	// described in github.com/gora8/symbolon (ERC-8004-referenced identity,
-	// on-chain Authority). Both are `omitempty`/pointer so this struct
-	// stays wire-compatible with the current API, which does not populate
-	// them yet — on-chain core (ActorAdapter, AuthorityRegistry, etc.) is
-	// deployed and verified on Base Sepolia testnet, but this API hasn't
-	// been wired to call it yet. Nil/empty here means "not yet issued
-	// on-chain," not "absent from the protocol."
+	// ActorRef and MandateID reference gora8's own design described in
+	// TARGET_STATE.md (ERC-8004-referenced identity, on-chain
+	// Authority). Both are `omitempty`/pointer, and both can genuinely be
+	// absent even on a real, successful deploy — ActorRef because
+	// ERC-8004 registration is best-effort and non-blocking (see
+	// services/deploy.ts's registerIdentity() call — a missing
+	// RELAY_WALLET_PRIVATE_KEY on the API side is the expected failure
+	// mode right now, not a bug), MandateID because on-chain Mandate
+	// issuance is a separate, owner-triggered action (`POST
+	// /v1/agents/:id/mandate/issue-onchain`), not automatic at deploy
+	// time — see that route's own doc comment for why. Nil/empty here
+	// means "not yet issued/registered on-chain," not "absent from the
+	// protocol" — the did:web identity and off-chain signed Mandate are
+	// both already real and independently verifiable regardless.
 	ActorRef *ActorRef `json:"actor_ref,omitempty"`
 }
 
 // ActorRef identifies an actor by reference to an external identity
-// registry rather than a gora8-issued ID — see gora8/symbolon SPEC.md §2.
-// Today gora8 issues a did:web identity directly; ActorRef is the
-// forward-compatible shape for when identity is minted/attached via
-// ERC-8004 instead (namespace "eip155-erc8004").
+// registry rather than a gora8-issued ID — see TARGET_STATE.md's
+// Identity section, and gora8's own SPEC.md §2.
+// gora8 still issues a did:web identity directly (Agent.DID, unaffected —
+// see TARGET_STATE.md's Identity primitive on why did:web keeps working
+// as one of the ERC-8004 registration document's endpoint types rather
+// than being replaced), and now also best-effort mints a real ERC-8004
+// identity at deploy time (services/deploy.ts's registerIdentity() call)
+// — this is populated once that succeeds, nil/omitted until then or if
+// it hasn't been attempted (e.g. RELAY_WALLET_PRIVATE_KEY not yet
+// configured server-side). Field names match the API's snake_case
+// convention used everywhere else (wallet_address, dashboard_url, etc.),
+// not the camelCase this struct originally guessed at before the API
+// side existed.
 type ActorRef struct {
 	Namespace string `json:"namespace"`
 	Registry  string `json:"registry"`
-	ActorID   string `json:"actorId"`
+	ActorID   string `json:"actor_id"`
 }
 
 // DeployRequest is the payload for POST /v1/agents.
@@ -296,7 +311,7 @@ type DeployResponse struct {
 	DashboardURL string `json:"dashboard_url"`
 	WalletAddr   string `json:"wallet_address"`
 	// MandateID references the signed spending Mandate issued for this
-	// agent at deploy time (see github.com/gora8/symbolon and
+	// agent at deploy time (see TARGET_STATE.md's Authority section and
 	// `gora8 mandate`, below). Omitempty: only rendered if the API
 	// populates it — verify against a real deploy response before
 	// assuming this field is live.
@@ -633,14 +648,14 @@ func (c *Client) GetPassport(agentID string) (Passport, error) {
 }
 
 // Mandate is deliberately map[string]interface{}, for the same reason as
-// Passport above: it's a signed document (see github.com/gora8/symbolon
-// SPEC.md §4.2, "Mandate object") meant to be verified/consumed as-is, not
+// Passport above: it's a signed document (see gora8's own SPEC.md §4.2,
+// "Mandate object") meant to be verified/consumed as-is, not
 // decomposed into Go fields that could silently drop something out of the
 // signed payload.
 type Mandate = map[string]interface{}
 
 // GetMandate fetches an agent's current spending Mandate — a public,
-// unauthenticated endpoint (see github.com/gora8/symbolon SPEC.md §4):
+// unauthenticated endpoint (see gora8's own SPEC.md §4):
 // a counterparty doesn't need a gora8 account to verify an agent's
 // spending authority before dealing with it. Authenticated here anyway
 // since every other CLI command requires it, but the endpoint itself
@@ -651,6 +666,30 @@ func (c *Client) GetMandate(agentID string) (Mandate, error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+// IssueMandateOnChainResult is the response from POST
+// /v1/agents/:id/mandate/issue-onchain.
+type IssueMandateOnChainResult struct {
+	MandateID string `json:"mandateId"`
+	TxHash    string `json:"txHash,omitempty"`
+	Status    string `json:"status"` // "issued" | "already-issued"
+}
+
+// IssueMandateOnChain issues the agent's current Mandate (by mandateId,
+// a hash of its agentId+policy) on AuthorityRegistry — see
+// TARGET_STATE.md's Authority section and AuthorityRegistry.sol. This
+// makes revocation status checkable in one on-chain call instead of only
+// via this API's own signature. Owner-only, and can fail with a clear,
+// server-side-configuration error (not this agent's fault) if gora8's
+// own AuthorityRegistry issuer key isn't configured — see the API
+// route's own doc comment.
+func (c *Client) IssueMandateOnChain(agentID string) (*IssueMandateOnChainResult, error) {
+	var result IssueMandateOnChainResult
+	if err := c.do("POST", "/v1/agents/"+agentID+"/mandate/issue-onchain", nil, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
 }
 
 // ── Logs ─────────────────────────────────────────────────────────────────────
