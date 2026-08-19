@@ -4,8 +4,11 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"os/exec"
+	"runtime"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/gora8/cli/internal/api"
 	"github.com/gora8/cli/internal/config"
@@ -29,8 +32,10 @@ var authLoginCmd = &cobra.Command{
 	Short: "Log in to gora8",
 	Long: `Log in to gora8.
 
-New here? This walks you through it — enter your email, we send you a
-6-digit code, and you're in. No separate signup step needed.
+Opens your browser to confirm a short code — approve it there (signing up
+first if you're new) and you're in. No separate signup step needed. Works
+over SSH too: if a browser can't open locally, copy the printed URL to any
+device.
 
 Already have an API key (e.g. from a teammate or a CI secret)? Pass it
 directly: gora8 auth login --api-key <key>`,
@@ -67,75 +72,90 @@ func runAuthLogin(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("no API key piped on stdin; run interactively or pass --api-key")
 	}
 
-	return loginWithEmailOTP(cfg)
+	return loginWithDeviceFlow(cfg)
 }
 
-// loginWithEmailOTP prompts for an email, sends a one-time code, and
-// exchanges it for an API key — this is the real primary flow, since most
-// people running `gora8 auth login` for the first time have no key yet.
-func loginWithEmailOTP(cfg *config.Config) error {
+// loginWithDeviceFlow implements the OAuth 2.0 Device Authorization Grant
+// (RFC 8628) — the same pattern the Vercel/GitHub/Stripe CLIs use. The CLI
+// requests a code pair with no account context, opens (or prints) a browser
+// URL for a human to confirm, and polls until that happens. This is the
+// real primary flow now: most people running `gora8 auth login` for the
+// first time have no key yet, and this handles both login and signup in
+// one browser step (unlike the old email/OTP-in-terminal flow it replaces).
+func loginWithDeviceFlow(cfg *config.Config) error {
 	client := api.New(cfg)
 
-	fmt.Print("  Email: ")
-	reader := bufio.NewReader(os.Stdin)
-	email, err := reader.ReadString('\n')
-	if err != nil {
-		return fmt.Errorf("read email: %w", err)
-	}
-	email = strings.TrimSpace(email)
-	if email == "" {
-		return fmt.Errorf("email cannot be empty")
-	}
-
-	spin := ui.NewSpinner("Sending code...")
+	spin := ui.NewSpinner("Requesting login code...")
 	spin.Start()
-	sent, err := client.SendOTP(email)
+	auth, err := client.DeviceAuthorize()
 	if err != nil {
-		spin.Fail("Failed to send code")
-		return fmt.Errorf("send code: %w", err)
-	}
-	spin.Stop("")
-	if sent.DevMode {
-		ui.Info("Dev mode — use code 000000")
-	} else {
-		ui.Info(fmt.Sprintf("Sent a 6-digit code to %s", email))
-	}
-
-	fmt.Print("  Code: ")
-	code, err := reader.ReadString('\n')
-	if err != nil {
-		return fmt.Errorf("read code: %w", err)
-	}
-	code = strings.TrimSpace(code)
-	if code == "" {
-		return fmt.Errorf("code cannot be empty")
-	}
-
-	spin = ui.NewSpinner("Verifying...")
-	spin.Start()
-	verified, err := client.VerifyOTP(email, code)
-	if err != nil {
-		spin.Fail("Invalid or expired code")
-		return fmt.Errorf("verify code: %w", err)
+		spin.Fail("Failed to start login")
+		return fmt.Errorf("device authorize: %w", err)
 	}
 	spin.Stop("")
 
-	cfg.APIKey = verified.APIKey
-	cfg.UserEmail = verified.User.Email
-	cfg.UserID = verified.User.ID
-	if err := config.Save(cfg); err != nil {
-		return fmt.Errorf("save config: %w", err)
+	ui.Info(fmt.Sprintf("Confirm code: %s", ui.Bold(auth.UserCode)))
+	if openBrowser(auth.VerificationURIComplete) {
+		ui.Info("Opened your browser. If it didn't open, visit:")
+	} else {
+		ui.Info("Open this URL on any device to continue:")
+	}
+	fmt.Printf("  %s\n\n", ui.Cyan(auth.VerificationURIComplete))
+
+	spin = ui.NewSpinner("Waiting for approval in the browser...")
+	spin.Start()
+
+	interval := time.Duration(auth.Interval) * time.Second
+	if interval <= 0 {
+		interval = 5 * time.Second
+	}
+	deadline := time.Now().Add(time.Duration(auth.ExpiresIn) * time.Second)
+
+	for time.Now().Before(deadline) {
+		time.Sleep(interval)
+		result, err := client.DeviceToken(auth.DeviceCode)
+		if err != nil {
+			spin.Fail("Login failed")
+			return fmt.Errorf("device token: %w", err)
+		}
+		if result == nil {
+			continue // still pending — keep polling
+		}
+
+		spin.Stop("")
+		cfg.APIKey = result.APIKey
+		cfg.UserEmail = result.User.Email
+		cfg.UserID = result.User.ID
+		if err := config.Save(cfg); err != nil {
+			return fmt.Errorf("save config: %w", err)
+		}
+
+		ui.Success(fmt.Sprintf("Logged in as %s", ui.Bold(result.User.Email)))
+		if result.User.Plan != "" {
+			ui.Info(fmt.Sprintf("Plan: %s", result.User.Plan))
+		}
+		return nil
 	}
 
-	if verified.IsNew {
-		ui.Success(fmt.Sprintf("Welcome to gora8, %s!", ui.Bold(verified.User.Email)))
-	} else {
-		ui.Success(fmt.Sprintf("Logged in as %s", ui.Bold(verified.User.Email)))
+	spin.Fail("Login code expired")
+	return fmt.Errorf("timed out waiting for browser approval; run 'gora8 auth login' again")
+}
+
+// openBrowser best-effort opens url in the system's default browser.
+// Returns false (never an error) when it can't — headless/SSH sessions are
+// an expected, fully-supported case for device flow: the caller falls back
+// to printing the URL for the user to open on any other device.
+func openBrowser(url string) bool {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("open", url)
+	case "windows":
+		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
+	default:
+		cmd = exec.Command("xdg-open", url)
 	}
-	if verified.User.Plan != "" {
-		ui.Info(fmt.Sprintf("Plan: %s", verified.User.Plan))
-	}
-	return nil
+	return cmd.Start() == nil
 }
 
 // loginWithAPIKey validates and persists a key the caller already has.

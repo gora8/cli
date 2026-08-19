@@ -153,42 +153,64 @@ func (c *Client) GetMe() (*MeResponse, error) {
 	return &me, nil
 }
 
-// SendOTPResponse is the response from POST /v1/auth/send-otp.
-type SendOTPResponse struct {
-	Sent    bool `json:"sent"`
-	DevMode bool `json:"dev_mode"`
+// ── Device authorization flow (RFC 8628) ────────────────────────────────────
+// Same pattern the Vercel/GitHub/Stripe CLIs use: get a code pair with no
+// account context, send the human to a browser to tie it to a real account,
+// poll until that happens. Works over SSH/headless sessions too, since the
+// browser doesn't have to run on the same machine as the CLI.
+
+// DeviceAuthorizeResponse is the response from POST /v1/auth/device/authorize.
+type DeviceAuthorizeResponse struct {
+	DeviceCode              string `json:"device_code"`
+	UserCode                string `json:"user_code"`
+	VerificationURI         string `json:"verification_uri"`
+	VerificationURIComplete string `json:"verification_uri_complete"`
+	ExpiresIn               int    `json:"expires_in"`
+	Interval                int    `json:"interval"`
 }
 
-// SendOTP requests a one-time sign-in code be emailed to the given address.
-// No API key is required — this is a public, unauthenticated endpoint.
-func (c *Client) SendOTP(email string) (*SendOTPResponse, error) {
-	var res SendOTPResponse
-	if err := c.do("POST", "/v1/auth/send-otp", map[string]string{"email": email}, &res); err != nil {
+// DeviceAuthorize starts a new device authorization request. No API key is
+// required — this is a public, unauthenticated endpoint.
+func (c *Client) DeviceAuthorize() (*DeviceAuthorizeResponse, error) {
+	var res DeviceAuthorizeResponse
+	if err := c.do("POST", "/v1/auth/device/authorize", map[string]string{}, &res); err != nil {
 		return nil, err
 	}
 	return &res, nil
 }
 
-// VerifyOTPResponse is the response from POST /v1/auth/verify-otp.
-type VerifyOTPResponse struct {
+// DeviceTokenResponse is the response from POST /v1/auth/device/token, once
+// approved.
+type DeviceTokenResponse struct {
 	User struct {
 		ID    string `json:"id"`
 		Email string `json:"email"`
 		Plan  string `json:"plan"`
 	} `json:"user"`
 	APIKey string `json:"apiKey"`
-	IsNew  bool   `json:"isNew"`
 }
 
-// VerifyOTP exchanges an emailed one-time code for a real, durable API key.
-// The CLI always requests type "api_key" (not the default "session" the web
-// app gets) — a long-lived credential that isn't silently rotated or expired
-// by unrelated logins elsewhere, unlike the web app's own session.
-func (c *Client) VerifyOTP(email, code string) (*VerifyOTPResponse, error) {
-	var res VerifyOTPResponse
-	body := map[string]string{"email": email, "code": code, "type": "api_key", "label": "CLI"}
-	if err := c.do("POST", "/v1/auth/verify-otp", body, &res); err != nil {
+// DeviceToken polls for the result of a device authorization. Returns
+// (nil, nil) while still pending — that's the expected, common case during
+// polling, not an error. A returned error means a terminal failure
+// (expired, denied, or rate-limited) that the caller should stop polling on.
+func (c *Client) DeviceToken(deviceCode string) (*DeviceTokenResponse, error) {
+	respBody, err := c.doRaw("POST", "/v1/auth/device/token", map[string]string{"device_code": deviceCode})
+	if err != nil {
+		if apiErr, ok := err.(*APIError); ok {
+			var body struct {
+				Error string `json:"error"`
+			}
+			_ = json.Unmarshal([]byte(apiErr.Body), &body)
+			if body.Error == "authorization_pending" || body.Error == "slow_down" {
+				return nil, nil
+			}
+		}
 		return nil, err
+	}
+	var res DeviceTokenResponse
+	if err := json.Unmarshal(respBody, &res); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
 	}
 	return &res, nil
 }

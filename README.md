@@ -74,7 +74,7 @@ go build -o bin/gora8 ./gora8
 ## Quick start
 
 ```sh
-gora8 auth login          # authenticate with email + a one-time code
+gora8 auth login          # authenticate via your browser
 gora8 init ./my-agent/    # scaffold an agent.yaml (detects framework, asks for the rest)
 gora8 deploy ./my-agent/  # deploy an agent from a directory
 gora8 agents list         # see everything you've deployed
@@ -83,8 +83,8 @@ gora8 agents list         # see everything you've deployed
 ## Authentication
 
 ```sh
-gora8 auth login    # interactive email + one-time-code login
-gora8 auth login --api-key <key>   # skip the email flow with a key you already have
+gora8 auth login    # opens your browser to confirm a short code
+gora8 auth login --api-key <key>   # skip the browser flow with a key you already have
 gora8 auth whoami   # show the currently authenticated user
 gora8 auth logout   # log out and revoke the local session
 ```
@@ -92,6 +92,13 @@ gora8 auth logout   # log out and revoke the local session
 `gora8 auth login` mints a long-lived API key for the CLI, separate from
 your browser session — logging in elsewhere (e.g. the web dashboard) never
 invalidates it. Credentials are stored in `~/.gora8/config.json`.
+
+Under the hood this is the OAuth 2.0 Device Authorization Grant (RFC 8628) —
+the CLI prints a short code and a URL, you confirm the code in a browser
+(new here? sign up right there — no separate step), and the CLI picks up
+the result automatically. The browser doesn't have to be on the same
+machine, so this works fine over SSH: copy the printed URL to your laptop
+or phone.
 
 You can also skip interactive login entirely by generating an API key from
 **Settings → API keys** on [app.gora8.com](https://app.gora8.com) and passing
