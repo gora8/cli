@@ -246,6 +246,17 @@ func runPolicySet(cmd *cobra.Command, args []string) error {
 	fmt.Println()
 	fmt.Printf("  %s\n", ui.Dim("Spending limits"))
 	printLimitRows(spendingRows(p.Spending, currency))
+
+	// A spending edit changes the agent's mandateId — the API resyncs
+	// on-chain enforcement to match automatically, best-effort. Surfaced
+	// here so a real sync failure isn't silent, not because the caller
+	// needs to do anything about it (see 'gora8 mandate issue-onchain'
+	// for the manual retry if it ever comes to that).
+	if resp.Mandate != nil && resp.Mandate.Enforcement != nil && !resp.Mandate.Enforcement.Delegated {
+		fmt.Println()
+		ui.Warning("On-chain enforcement sync failed: " + resp.Mandate.Enforcement.Error)
+		ui.Info(fmt.Sprintf("Retry with: gora8 mandate issue-onchain %s", agentID))
+	}
 	return nil
 }
 

@@ -28,14 +28,14 @@ var deployCmd = &cobra.Command{
 	Long: `Deploy an AI agent as an economic participant, not just a running process.
 
 One command: an A2A agent card is generated, the agent's identity is
-registered, a self-custodied wallet is attached, and a spending Mandate is
-issued with the limits from your agent.yaml policy — a signed document a
-counterparty can verify independently, not a promise your agent's own code
-makes to itself (see 'gora8 mandate'). Note: this currently proves the
-Mandate exists and hasn't been revoked, not that the wallet is
-structurally prevented from exceeding it — enforcement is on the roadmap.
-None of this requires any other agent to exist yet: your agent can be paid
-and can spend, safely, starting with its very first transaction.
+registered, a wallet is attached, and a spending Mandate is issued and
+activated for on-chain enforcement — a signed document a counterparty can
+verify independently, not a promise your agent's own code makes to itself
+(see 'gora8 mandate'). With no spending policy set yet, the Mandate
+authorizes zero spend; set one with 'gora8 policy set' and it's synced
+automatically. None of this requires any other agent to exist yet: your
+agent can be paid and can spend, safely, starting with its very first
+transaction.
 
 By default the agent publishes to gora8's own directory (free, instant, no
 external dependency). Run 'gora8 publish' separately to reach other
@@ -184,8 +184,15 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 	if resp.WalletAddr != "" {
 		details = append(details, []string{"Wallet", resp.WalletAddr})
 	}
-	if resp.MandateID != "" {
-		details = append(details, []string{"Mandate", resp.MandateID})
+	if resp.Mandate != nil {
+		details = append(details, []string{"Mandate", resp.Mandate.MandateID})
+		if resp.Mandate.Enforcement != nil {
+			if resp.Mandate.Enforcement.Delegated {
+				details = append(details, []string{"Enforcement", ui.Green("active")})
+			} else {
+				details = append(details, []string{"Enforcement", ui.Yellow("not yet active — run `gora8 mandate issue-onchain " + resp.Agent.ID + "`")})
+			}
+		}
 	}
 	if resp.Agent.ActorRef != nil {
 		// Not populated by the current API — see the ActorRef doc comment

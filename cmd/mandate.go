@@ -81,19 +81,22 @@ func runMandate(cmd *cobra.Command, args []string) error {
 
 var mandateIssueOnChainCmd = &cobra.Command{
 	Use:   "issue-onchain <agent-id>",
-	Short: "Issue this agent's current Mandate on AuthorityRegistry (Base Sepolia testnet)",
-	Long: `Issues the agent's current Mandate on-chain, on AuthorityRegistry
-(Base Sepolia testnet).
+	Short: "Resync this agent's current Mandate on AuthorityRegistry (Base Sepolia testnet)",
+	Long: `Resyncs the agent's current Mandate on-chain, on AuthorityRegistry
+(Base Sepolia testnet), and re-points its wallet at it if needed.
+
+'gora8 deploy' and 'gora8 policy set' already do this automatically,
+best-effort — you don't need to run this as part of normal use. It's here
+as an explicit, loud retry for the rare case that automatic sync failed
+(e.g. a transient RPC hiccup): this surfaces the real error instead of
+failing silently the way the deploy/policy call's own best-effort attempt
+does.
 
 This doesn't replace the signed Mandate document ('gora8 mandate') — it
 adds a second, on-chain-checkable fact: whether this exact Mandate
 (identified by a hash of the agent's id and current policy) has been
 issued and, if so, whether it's since been revoked — checkable in one
 contract call by any third party, independent of gora8's API.
-
-Not automatic on deploy or on every policy edit — this is a deliberate,
-owner-triggered action, since a policy change produces a new Mandate id
-and each one is issued separately, on-chain, once.
 
 Example:
   gora8 mandate issue-onchain agt_abc123`,
@@ -128,8 +131,15 @@ func runMandateIssueOnChain(cmd *cobra.Command, args []string) error {
 
 	fmt.Println()
 	ui.Info("Mandate ID: " + result.MandateID)
-	if result.TxHash != "" {
-		ui.Info("Tx hash:    " + result.TxHash)
+	if result.Enforcement != nil {
+		if result.Enforcement.Delegated {
+			ui.Success("Enforcement: active")
+			if result.Enforcement.TxHash != "" {
+				ui.Info("Tx hash:     " + result.Enforcement.TxHash)
+			}
+		} else {
+			ui.Warning("Enforcement: not active — " + result.Enforcement.Error)
+		}
 	}
 	return nil
 }

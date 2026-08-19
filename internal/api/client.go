@@ -332,12 +332,11 @@ type DeployResponse struct {
 	Agent        Agent  `json:"agent"`
 	DashboardURL string `json:"dashboard_url"`
 	WalletAddr   string `json:"wallet_address"`
-	// MandateID references the signed spending Mandate issued for this
-	// agent at deploy time (see TARGET_STATE.md's Authority section and
-	// `gora8 mandate`, below). Omitempty: only rendered if the API
-	// populates it — verify against a real deploy response before
-	// assuming this field is live.
-	MandateID string `json:"mandate_id,omitempty"`
+	// Mandate enforcement activation is automatic and best-effort at
+	// deploy time (see TARGET_STATE.md's Authority section) — nil here
+	// means the sync itself failed (logged server-side, not the agent's
+	// fault), not that it was skipped.
+	Mandate *MandateSyncResult `json:"mandate,omitempty"`
 }
 
 func (c *Client) DeployAgent(req *DeployRequest) (*DeployResponse, error) {
@@ -490,6 +489,11 @@ func (c *Client) GetEarnings(agentID, period string) (*EarningsResponse, error) 
 type PolicyResponse struct {
 	AgentID string       `json:"agent_id"`
 	Policy  PolicyConfig `json:"policy"`
+	// A policy edit changes the agent's mandateId, so every update
+	// automatically resyncs on-chain Mandate enforcement to match — see
+	// DeployResponse.Mandate's doc comment above. Only present on
+	// PATCH responses (GET /policy doesn't touch the chain).
+	Mandate *MandateSyncResult `json:"mandate,omitempty"`
 }
 
 func (c *Client) GetPolicy(agentID string) (*PolicyResponse, error) {
@@ -690,24 +694,46 @@ func (c *Client) GetMandate(agentID string) (Mandate, error) {
 	return result, nil
 }
 
-// IssueMandateOnChainResult is the response from POST
-// /v1/agents/:id/mandate/issue-onchain.
-type IssueMandateOnChainResult struct {
-	MandateID string `json:"mandateId"`
+// EnforcementStatus reports whether an agent's wallet is actually
+// delegated to MandateEnforcer (see contracts/src/MandateEnforcer.sol) —
+// a Mandate can be issued and verifiable on AuthorityRegistry without yet
+// being enforced this way, which is why the two are reported separately
+// rather than collapsed into one status.
+type EnforcementStatus struct {
+	Delegated bool   `json:"delegated"`
 	TxHash    string `json:"txHash,omitempty"`
-	Status    string `json:"status"` // "issued" | "already-issued"
+	Error     string `json:"error,omitempty"`
 }
 
-// IssueMandateOnChain issues the agent's current Mandate (by mandateId,
-// a hash of its agentId+policy) on AuthorityRegistry — see
+// MandateSyncResult is the shape returned by every endpoint that
+// activates/resyncs on-chain Mandate enforcement — POST
+// /v1/agents/:id/mandate/issue-onchain, and (embedded in their own
+// response) POST /v1/agents (deploy) and PATCH /v1/agents/:id/policy.
+// Issuing on AuthorityRegistry and activating enforcement are two
+// different guarantees, reported separately — see TARGET_STATE.md's
+// Authority section: a Mandate that's issued but not yet delegated to
+// MandateEnforcer is still only verifiable, not enforced.
+type MandateSyncResult struct {
+	MandateID   string             `json:"mandateId"`
+	Status      string             `json:"status"` // "issued" | "already-issued"
+	Enforcement *EnforcementStatus `json:"enforcement,omitempty"`
+}
+
+// IssueMandateOnChain resyncs the agent's *current* Mandate (by
+// mandateId, a hash of its agentId+policy) on AuthorityRegistry and, if
+// needed, re-points its delegated wallet at it — see
 // TARGET_STATE.md's Authority section and AuthorityRegistry.sol. This
 // makes revocation status checkable in one on-chain call instead of only
-// via this API's own signature. Owner-only, and can fail with a clear,
-// server-side-configuration error (not this agent's fault) if gora8's
-// own AuthorityRegistry issuer key isn't configured — see the API
-// route's own doc comment.
-func (c *Client) IssueMandateOnChain(agentID string) (*IssueMandateOnChainResult, error) {
-	var result IssueMandateOnChainResult
+// via this API's own signature.
+//
+// Not the primary way enforcement gets activated — `gora8 deploy` and
+// `gora8 policy set` already trigger this automatically, best-effort, so
+// an agent is enforcement-active without its owner ever needing to know
+// this command exists. This remains as an explicit, loud retry: if that
+// automatic sync failed (e.g. a transient RPC hiccup), this surfaces the
+// real error instead of the deploy/policy call's own best-effort silence.
+func (c *Client) IssueMandateOnChain(agentID string) (*MandateSyncResult, error) {
+	var result MandateSyncResult
 	if err := c.do("POST", "/v1/agents/"+agentID+"/mandate/issue-onchain", nil, &result); err != nil {
 		return nil, err
 	}
