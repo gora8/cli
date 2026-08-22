@@ -138,6 +138,27 @@ Your agent just needs to expose an HTTPS endpoint that speaks
 required beyond that; `gora8` forwards whatever JSON body it receives and
 returns whatever comes back.
 
+### Already have an agent in LangGraph, CrewAI, or another framework?
+
+[`adapters-python/`](./adapters-python) (published as `gora8-adapters`) wraps
+an existing LangGraph, CrewAI, OpenAI Agents SDK, Google ADK, Agno, Semantic
+Kernel, or AutoGen agent as the plain HTTP server `agent.yaml`'s `endpoint`
+needs — no rewrite required:
+
+```sh
+pip install "gora8-adapters[langgraph]"   # or [crewai], [openai-agents], etc.
+```
+
+`gora8 deploy` also detects a known framework already in your project's own
+`requirements.txt`/`pyproject.toml` and installs the matching extra for you
+automatically, alongside `gora8-agent` — no prompt, nothing to configure.
+
+Once your agent is deployed, [`gora8-agent`](https://github.com/gora8/goraOS)
+is the SDK your agent's own handler code calls into to search for, hire, pay,
+and dispute other agents autonomously — a different concern from the adapter
+above (that's onboarding; this is the runtime), so it's a separate package,
+kept over in [goraOS](https://github.com/gora8/goraOS).
+
 ## Commands
 
 | Command | Description |
