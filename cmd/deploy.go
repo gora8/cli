@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -172,6 +173,13 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 		spin3.Stop("Published")
 	}
 
+	// Step 4: Best-effort local SDK setup — so the agent's own handler
+	// code can `import gora8_agent` / `require("gora8-agent")`
+	// immediately, without a separate manual install step. Never fails
+	// the deploy itself: a skipped or failed install here just means
+	// the developer installs it by hand, same as before this existed.
+	setupAgentSDK(searchPath)
+
 	fmt.Println()
 	ui.Success(fmt.Sprintf("Agent %s deployed successfully!", ui.Bold(agentConfig.Name)))
 	fmt.Println()
@@ -213,6 +221,86 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 	ui.Info("Run `gora8 agents list` to see all your agents.")
 	ui.Info(fmt.Sprintf("Run `gora8 mandate %s` to see and verify its spending Mandate.", resp.Agent.ID))
 	return nil
+}
+
+// setupAgentSDK detects the deployed project's language by its own
+// existing manifest file (never gora8's own preference) and installs
+// gora8-agent (see github.com/gora8/goraOS) into it, so the agent's own
+// handler code — wherever agentConfig.Endpoint actually points, which
+// this CLI never runs or bundles itself — has the SDK available the
+// moment `gora8 deploy` finishes. Best-effort throughout: any failure
+// degrades to a one-line manual-install hint, never an error this
+// command returns.
+func setupAgentSDK(dir string) {
+	hasFile := func(name string) bool {
+		_, err := os.Stat(filepath.Join(dir, name))
+		return err == nil
+	}
+	runIn := func(name string, args ...string) error {
+		cmd := exec.Command(name, args...)
+		cmd.Dir = dir
+		return cmd.Run()
+	}
+
+	switch {
+	case hasFile("package.json"):
+		spin := ui.NewSpinner("Installing gora8-agent (npm)...")
+		spin.Start()
+		if err := runIn("npm", "install", "gora8-agent", "--save"); err != nil {
+			spin.Fail("Couldn't install gora8-agent automatically")
+			ui.Info("Run manually: npm install gora8-agent")
+			return
+		}
+		spin.Stop(`gora8-agent installed — require("gora8-agent") from your handler`)
+
+	case hasFile("requirements.txt"):
+		appendLineIfMissing(filepath.Join(dir, "requirements.txt"), "gora8-agent")
+		spin := ui.NewSpinner("Installing gora8-agent (pip)...")
+		spin.Start()
+		if runIn("pip", "install", "-q", "gora8-agent") != nil && runIn("pip3", "install", "-q", "gora8-agent") != nil {
+			spin.Fail("Couldn't install gora8-agent automatically")
+			ui.Info("Added to requirements.txt — run: pip install -r requirements.txt")
+			return
+		}
+		spin.Stop("gora8-agent installed and added to requirements.txt")
+
+	case hasFile("pyproject.toml"):
+		spin := ui.NewSpinner("Installing gora8-agent (pip)...")
+		spin.Start()
+		if runIn("pip", "install", "-q", "gora8-agent") != nil && runIn("pip3", "install", "-q", "gora8-agent") != nil {
+			spin.Fail("Couldn't install gora8-agent automatically")
+			ui.Info("Run manually: pip install gora8-agent")
+			return
+		}
+		spin.Stop("gora8-agent installed")
+		ui.Info("Add it to pyproject.toml's own dependency list too, for reproducible installs elsewhere (poetry add / uv add gora8-agent).")
+
+	default:
+		ui.Info("No requirements.txt/pyproject.toml/package.json found here — install the SDK yourself: pip install gora8-agent (Python) or npm install gora8-agent (Node)")
+	}
+}
+
+// appendLineIfMissing is deliberately a plain substring check, not a
+// requirements-file parser (no version-pin awareness, no comment
+// handling) — good enough to avoid a duplicate "gora8-agent" line on a
+// repeat `gora8 deploy`, not a general dependency-file editor.
+func appendLineIfMissing(path, line string) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return
+	}
+	if strings.Contains(string(data), line) {
+		return
+	}
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	if len(data) > 0 && data[len(data)-1] != '\n' {
+		_, _ = f.WriteString("\n")
+	}
+	_, _ = f.WriteString(line + "\n")
 }
 
 // validPricingModels mirrors the values the dashboard and API actually
