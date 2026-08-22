@@ -254,30 +254,77 @@ func setupAgentSDK(dir string) {
 		spin.Stop(`gora8-agent installed — require("gora8-agent") from your handler`)
 
 	case hasFile("requirements.txt"):
-		appendLineIfMissing(filepath.Join(dir, "requirements.txt"), "gora8-agent")
+		manifestPath := filepath.Join(dir, "requirements.txt")
+		appendLineIfMissing(manifestPath, "gora8-agent")
+		pkgs := pipPackagesFor(manifestPath)
 		spin := ui.NewSpinner("Installing gora8-agent (pip)...")
 		spin.Start()
-		if runIn("pip", "install", "-q", "gora8-agent") != nil && runIn("pip3", "install", "-q", "gora8-agent") != nil {
+		if runIn("pip", append([]string{"install", "-q"}, pkgs...)...) != nil && runIn("pip3", append([]string{"install", "-q"}, pkgs...)...) != nil {
 			spin.Fail("Couldn't install gora8-agent automatically")
 			ui.Info("Added to requirements.txt — run: pip install -r requirements.txt")
 			return
 		}
-		spin.Stop("gora8-agent installed and added to requirements.txt")
+		spin.Stop(strings.Join(pkgs, " ") + " installed and added to requirements.txt")
 
 	case hasFile("pyproject.toml"):
+		pkgs := pipPackagesFor(filepath.Join(dir, "pyproject.toml"))
 		spin := ui.NewSpinner("Installing gora8-agent (pip)...")
 		spin.Start()
-		if runIn("pip", "install", "-q", "gora8-agent") != nil && runIn("pip3", "install", "-q", "gora8-agent") != nil {
+		if runIn("pip", append([]string{"install", "-q"}, pkgs...)...) != nil && runIn("pip3", append([]string{"install", "-q"}, pkgs...)...) != nil {
 			spin.Fail("Couldn't install gora8-agent automatically")
-			ui.Info("Run manually: pip install gora8-agent")
+			ui.Info("Run manually: pip install " + strings.Join(pkgs, " "))
 			return
 		}
-		spin.Stop("gora8-agent installed")
-		ui.Info("Add it to pyproject.toml's own dependency list too, for reproducible installs elsewhere (poetry add / uv add gora8-agent).")
+		spin.Stop(strings.Join(pkgs, " ") + " installed")
+		ui.Info("Add them to pyproject.toml's own dependency list too, for reproducible installs elsewhere (poetry add / uv add).")
 
 	default:
 		ui.Info("No requirements.txt/pyproject.toml/package.json found here — install the SDK yourself: pip install gora8-agent (Python) or npm install gora8-agent (Node)")
 	}
+}
+
+// frameworkExtras maps a framework package name a project might already
+// depend on to gora8-adapters' own matching extra (see
+// adapters-python/pyproject.toml in github.com/gora8/cli's
+// adapters-python/ — moved there from goraOS specifically because this
+// is onboarding tooling for an existing framework agent, not a runtime
+// capability). Deliberately keyed on the framework's own package name,
+// not gora8's — this only ever fires if the project already declares
+// that dependency itself, so a project using none of these gets nothing
+// extra installed.
+var frameworkExtras = map[string]string{
+	"langgraph":         "langgraph",
+	"crewai":            "crewai",
+	"openai-agents":     "openai-agents",
+	"google-adk":        "google-adk",
+	"agno":              "agno",
+	"semantic-kernel":   "semantic-kernel",
+	"autogen-agentchat": "autogen",
+	"autogen-ext":       "autogen",
+}
+
+// pipPackagesFor always includes gora8-agent, plus
+// gora8-adapters[<extra>] for every recognized framework already named
+// in the given manifest — no prompt, no flag, nothing to answer. A
+// plain substring scan (like appendLineIfMissing), not a real
+// requirements.txt/pyproject.toml parser: good enough to catch "this
+// project already depends on langgraph" without needing per-format
+// parsing logic for two different manifest shapes.
+func pipPackagesFor(manifestPath string) []string {
+	pkgs := []string{"gora8-agent"}
+	data, err := os.ReadFile(manifestPath)
+	if err != nil {
+		return pkgs
+	}
+	content := string(data)
+	seenExtras := map[string]bool{}
+	for pkgName, extra := range frameworkExtras {
+		if strings.Contains(content, pkgName) && !seenExtras[extra] {
+			seenExtras[extra] = true
+			pkgs = append(pkgs, fmt.Sprintf("gora8-adapters[%s]", extra))
+		}
+	}
+	return pkgs
 }
 
 // appendLineIfMissing is deliberately a plain substring check, not a
