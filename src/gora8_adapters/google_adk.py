@@ -64,3 +64,25 @@ def serve(
         return out_map(asyncio.run(run_once(task)))
 
     _serve(handler, host=host, port=port)
+
+
+def gora8_tools(credential: str, *, base_url: Optional[str] = None) -> list:
+    """Returns gora8's 12 economic-primitive tools (search, hire, dispute,
+    quote, ...) as Google ADK `FunctionTool` instances, ready to pass
+    straight into `Agent(tools=[*gora8_tools(cred), ...])`. Each tool's
+    name, description, and argument schema come from its own real
+    docstring/type hints — the agent's own tool-calling loop understands
+    what each one does and when to use it without any separate
+    system-prompt engineering, the same way an MCP host does via
+    `gora8-agent-mcp`.
+
+    Verified against google-adk 2.7.1's `google.adk.tools.FunctionTool`.
+    """
+    from google.adk.tools import FunctionTool
+
+    from gora8_agent import Client
+
+    from ._tool_functions import build_tool_functions
+
+    client = Client(credential, base_url=base_url) if base_url else Client(credential)
+    return [FunctionTool(fn) for fn in build_tool_functions(client)]

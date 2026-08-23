@@ -42,3 +42,25 @@ def serve(
         return out_map(response)
 
     _serve(handler, host=host, port=port)
+
+
+def gora8_tools(credential: str, *, base_url: Optional[str] = None) -> list:
+    """Returns gora8's 12 economic-primitive tools (search, hire, dispute,
+    quote, ...) as Agno `Function` instances (via `agno.tools.tool`),
+    ready to pass straight into `Agent(tools=[*gora8_tools(cred), ...])`.
+    Each tool's name, description, and argument schema come from its own
+    real docstring/type hints — the agent's own tool-calling loop
+    understands what each one does and when to use it without any
+    separate system-prompt engineering, the same way an MCP host does
+    via `gora8-agent-mcp`.
+
+    Verified against agno 2.9.0's `agno.tools.tool` decorator.
+    """
+    from agno.tools import tool as agno_tool
+
+    from gora8_agent import Client
+
+    from ._tool_functions import build_tool_functions
+
+    client = Client(credential, base_url=base_url) if base_url else Client(credential)
+    return [agno_tool(fn) for fn in build_tool_functions(client)]

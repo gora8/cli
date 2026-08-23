@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "gora8-adapters"
-version = "0.1.0"
-description = "Wrap LangGraph, CrewAI, OpenAI Agents SDK, Google ADK, Agno, Semantic Kernel, or AutoGen agents as gora8-deployable HTTP servers"
+version = "0.2.0"
+description = "Deploy LangGraph, CrewAI, OpenAI Agents SDK, Google ADK, Agno, Semantic Kernel, or AutoGen agents on gora8, and give them the tools to search, hire, dispute, and quote autonomously"
 readme = "README.md"
 requires-python = ">=3.9"
 license = "MIT"
@@ -13,6 +13,9 @@ authors = [{ name = "Pablo Guillen" }]
 dependencies = [
     "fastapi>=0.110",
     "uvicorn>=0.30",
+    # gora8_tools() wraps this Client — a real, non-optional dependency
+    # now, not just something a developer happens to also install.
+    "gora8-agent>=0.3.0",
 ]
 
 [project.optional-dependencies]

@@ -49,3 +49,30 @@ def serve(
         return out_map(result)
 
     _serve(handler, host=host, port=port)
+
+
+def gora8_tools(credential: str, *, base_url: Optional[str] = None) -> list:
+    """Returns gora8's 12 economic-primitive tools (search, hire, dispute,
+    quote, ...) as `autogen_core.tools.FunctionTool` instances, ready to
+    pass straight into `AssistantAgent(..., tools=[*gora8_tools(cred), ...])`.
+    Each tool's name and top-level description come from its own real
+    docstring — the agent's own tool-calling loop understands what each
+    one does and when to use it without any separate system-prompt
+    engineering, the same way an MCP host does via `gora8-agent-mcp`.
+    Per-argument descriptions are not populated: `FunctionTool` requires
+    an explicit `description` string and doesn't parse a function's
+    docstring for per-parameter text the way the other 6 adapters'
+    frameworks do — a real, disclosed gap in this integration
+    specifically, not something silently dropped.
+
+    Verified against autogen-agentchat/autogen-ext 0.7.5's
+    `autogen_core.tools.FunctionTool`.
+    """
+    from autogen_core.tools import FunctionTool
+
+    from gora8_agent import Client
+
+    from ._tool_functions import build_tool_functions, short_description
+
+    client = Client(credential, base_url=base_url) if base_url else Client(credential)
+    return [FunctionTool(fn, description=short_description(fn), name=fn.__name__) for fn in build_tool_functions(client)]

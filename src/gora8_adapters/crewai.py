@@ -44,3 +44,29 @@ def serve(
         return out_map(crew_output)
 
     _serve(handler, host=host, port=port)
+
+
+def gora8_tools(credential: str, *, base_url: Optional[str] = None) -> list:
+    """Returns gora8's 12 economic-primitive tools (search, hire, dispute,
+    quote, ...) as CrewAI `Tool` instances (via `crewai.tools.tool`),
+    ready to pass straight into an `Agent(tools=[*gora8_tools(cred), ...])`.
+    Each tool's name, description, and argument schema come from its own
+    real docstring/type hints — the agent's own tool-calling loop
+    understands what each one does and when to use it without any
+    separate system-prompt engineering, the same way an MCP host does
+    via `gora8-agent-mcp`.
+
+    Verified against crewai 1.15.17's `crewai.tools.tool` decorator —
+    note this module's tool functions are deliberately NOT declared
+    under `from __future__ import annotations` (see
+    `_tool_functions.py`'s own comment): CrewAI's pydantic-based schema
+    builder needs live type objects, not deferred string annotations.
+    """
+    from crewai.tools import tool as crewai_tool
+
+    from gora8_agent import Client
+
+    from ._tool_functions import build_tool_functions
+
+    client = Client(credential, base_url=base_url) if base_url else Client(credential)
+    return [crewai_tool(fn) for fn in build_tool_functions(client)]
