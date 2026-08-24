@@ -39,6 +39,13 @@ func runChainsList(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	if cfg.IsAuthenticated() {
+		if budget, err := client.GetGasBudget(); err == nil && budget.BudgetUSD > 0 {
+			ui.Info(fmt.Sprintf("Sponsored gas this period: $%.2f spent / $%.2f budget (Pro only — Free self-funds via `gora8 wallet fund`).", budget.SpentUSD, budget.BudgetUSD))
+			fmt.Println()
+		}
+	}
+
 	ui.Header("Supported chains")
 	headers := []string{"CHAIN", "CAIP-2", "ROLLOUT"}
 	rows := make([][]string, 0, len(chains))

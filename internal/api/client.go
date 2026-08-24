@@ -425,6 +425,20 @@ func (c *Client) ActivateChain(agentID, chain string) (*ChainActivateResponse, e
 	return &resp, nil
 }
 
+type GasBudgetResponse struct {
+	SpentUSD     float64 `json:"spent_usd"`
+	RemainingUSD float64 `json:"remaining_usd"`
+	BudgetUSD    float64 `json:"budget_usd"`
+}
+
+func (c *Client) GetGasBudget() (*GasBudgetResponse, error) {
+	var resp GasBudgetResponse
+	if err := c.do("GET", "/v1/billing/gas-budget", nil, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
 // ── Publish ──────────────────────────────────────────────────────────────────
 
 type PublishRequest struct {
