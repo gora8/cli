@@ -337,6 +337,36 @@ type DeployResponse struct {
 	// means the sync itself failed (logged server-side, not the agent's
 	// fault), not that it was skipped.
 	Mandate *MandateSyncResult `json:"mandate,omitempty"`
+	// Rollout across every auto-rollout chain (api/src/lib/chains.ts) —
+	// empty on a Base-Sepolia-only deployment (no mainnet RPC
+	// configured server-side), not an error. Ethereum never appears here
+	// automatically — see 'gora8 chains add'.
+	Chains []ChainActivation `json:"chains,omitempty"`
+}
+
+type ChainActivation struct {
+	Chain           string `json:"chain"`
+	Caip2           string `json:"caip2"`
+	Status          string `json:"status"` // "active" | "awaiting_gas" | "failed"
+	ActorID         string `json:"actor_id"`
+	MandateEnforced bool   `json:"mandate_enforced"`
+	Error           string `json:"error,omitempty"`
+}
+
+type SupportedChain struct {
+	Caip2       string `json:"caip2"`
+	ChainID     int    `json:"chain_id"`
+	Name        string `json:"name"`
+	AutoRollout bool   `json:"auto_rollout"`
+}
+
+type ChainActivateResponse struct {
+	Chain           string `json:"chain"`
+	Caip2           string `json:"caip2"`
+	Status          string `json:"status"`
+	ActorID         string `json:"actor_id"`
+	MandateEnforced bool   `json:"mandate_enforced"`
+	Error           string `json:"error,omitempty"`
 }
 
 func (c *Client) DeployAgent(req *DeployRequest) (*DeployResponse, error) {
@@ -375,6 +405,24 @@ func (c *Client) ResumeAgent(id string) error {
 
 func (c *Client) DeleteAgent(id string) error {
 	return c.do("DELETE", "/v1/agents/"+id, nil, nil)
+}
+
+func (c *Client) ListChains() ([]SupportedChain, error) {
+	var result struct {
+		Chains []SupportedChain `json:"chains"`
+	}
+	if err := c.do("GET", "/v1/chains", nil, &result); err != nil {
+		return nil, err
+	}
+	return result.Chains, nil
+}
+
+func (c *Client) ActivateChain(agentID, chain string) (*ChainActivateResponse, error) {
+	var resp ChainActivateResponse
+	if err := c.do("POST", "/v1/agents/"+agentID+"/chains/"+chain+"/activate", nil, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
 }
 
 // ── Publish ──────────────────────────────────────────────────────────────────

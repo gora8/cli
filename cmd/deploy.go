@@ -218,8 +218,28 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 		fmt.Printf("  %s  %s\n", ui.Dim(fmt.Sprintf("%-12s", d[0])), d[1])
 	}
 	fmt.Println()
+
+	// One command, multiple chains: report the automatic rollout the same
+	// deploy call just triggered (api/src/lib/chains.ts's
+	// getAutoRolloutChains() — Ethereum isn't in it, see `gora8 chains`).
+	if len(resp.Chains) > 0 {
+		active, awaitingGas := 0, 0
+		for _, c := range resp.Chains {
+			if c.Status == "active" {
+				active++
+			} else if c.Status == "awaiting_gas" {
+				awaitingGas++
+			}
+		}
+		ui.Info(fmt.Sprintf("Rolled out to %d/%d additional chains.", active, len(resp.Chains)))
+		if awaitingGas > 0 {
+			ui.Warning(fmt.Sprintf("%d chain(s) need the agent wallet funded with native gas — see `gora8 wallet fund` and `gora8 chains list`.", awaitingGas))
+		}
+	}
+
 	ui.Info("Run `gora8 agents list` to see all your agents.")
 	ui.Info(fmt.Sprintf("Run `gora8 mandate %s` to see and verify its spending Mandate.", resp.Agent.ID))
+	ui.Info("Run `gora8 chains list` to see every supported chain, and `gora8 chains add` to opt into Ethereum.")
 	return nil
 }
 

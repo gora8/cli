@@ -41,6 +41,7 @@ func init() {
 		deployCmd,
 		agentsCmd,
 		walletCmd,
+		chainsCmd,
 		identityCmd,
 		mandateCmd,
 		publishCmd,
