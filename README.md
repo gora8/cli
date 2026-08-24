@@ -1,6 +1,9 @@
 <div align="center">
   <a href="https://gora8.com">
-    <img src="./.github/assets/gora8_hero.png" alt="gora8" width="300" />
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="./.github/assets/gora8_hero_white.png" />
+      <img src="./.github/assets/gora8_hero.png" alt="gora8" width="300" />
+    </picture>
   </a>
 </div>
 
