@@ -820,3 +820,21 @@ func (c *Client) CreateCheckoutSession() (*CheckoutResponse, error) {
 	}
 	return &resp, nil
 }
+
+type OnrampResponse struct {
+	URL string `json:"url"`
+}
+
+// CreateOnrampSession returns a real Coinbase Onramp checkout URL, scoped
+// to this agent's own wallet address(es) — the CLI itself never touches
+// card details or KYC, it just opens the browser to Coinbase's hosted page.
+// Completion is reported to the API asynchronously via webhook, not by this
+// call, so the caller has to poll the wallet balance separately to notice
+// funds landing.
+func (c *Client) CreateOnrampSession(agentID string) (*OnrampResponse, error) {
+	var resp OnrampResponse
+	if err := c.do("POST", "/v1/agents/"+agentID+"/wallet/fund", nil, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}

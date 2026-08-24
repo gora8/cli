@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/gora8/cli/internal/api"
 	"github.com/gora8/cli/internal/config"
@@ -15,6 +16,8 @@ var withdrawAmount string
 var withdrawTo string
 var exportYear string
 var exportOut string
+var fundAgentID string
+var fundNoOpen bool
 
 var walletCmd = &cobra.Command{
 	Use:   "wallet",
@@ -28,6 +31,7 @@ Examples:
   gora8 wallet show                          # Show all wallet balances
   gora8 wallet show --agent agt_abc123       # Show one agent's wallet
   gora8 wallet transactions --agent agt_abc123
+  gora8 wallet fund --agent agt_abc123       # Buy USDC with a card
   gora8 wallet withdraw --agent agt_abc123 --amount 50.00 --to 0x...`,
 }
 
@@ -202,6 +206,75 @@ var walletWithdrawCmd = &cobra.Command{
 	},
 }
 
+var walletFundCmd = &cobra.Command{
+	Use:   "fund",
+	Short: "Fund an agent's wallet with a card via Coinbase Onramp",
+	Long: `Buy USDC with a card and have it delivered straight to an agent's own
+wallet — gora8 never touches your card details or the funds; Coinbase
+handles the purchase and KYC. Opens a Coinbase-hosted checkout page in your
+browser, then waits for the balance to arrive.
+
+Examples:
+  gora8 wallet fund --agent agt_abc123
+  gora8 wallet fund --agent agt_abc123 --no-open   # just print the link`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cfg, err := config.Load()
+		if err != nil {
+			return fmt.Errorf("load config: %w", err)
+		}
+		if !cfg.IsAuthenticated() {
+			ui.Error("Not authenticated. Run: gora8 auth login")
+			return nil
+		}
+		if fundAgentID == "" {
+			ui.Error("Specify an agent: --agent <agent-id>")
+			return nil
+		}
+
+		client := api.New(cfg)
+
+		before, err := client.GetWallet(fundAgentID)
+		if err != nil {
+			return err
+		}
+
+		session, err := client.CreateOnrampSession(fundAgentID)
+		if err != nil {
+			return err
+		}
+
+		if fundNoOpen || !openBrowser(session.URL) {
+			ui.Info("Open this link to buy USDC with a card:")
+			fmt.Println("  " + ui.Bold(session.URL))
+		} else {
+			ui.Info("Opened your browser to complete the purchase.")
+			fmt.Println("  " + ui.Dim(session.URL))
+		}
+
+		fmt.Println()
+		spin := ui.NewSpinner("Waiting for funds to arrive...")
+		spin.Start()
+		deadline := time.Now().Add(15 * time.Minute)
+		for time.Now().Before(deadline) {
+			time.Sleep(5 * time.Second)
+			after, err := client.GetWallet(fundAgentID)
+			if err != nil {
+				continue // transient — keep polling
+			}
+			if after.Balance > before.Balance {
+				spin.Stop("Funds received")
+				fmt.Println()
+				fmt.Printf("  %-14s %s\n", ui.Dim("New balance"), fmt.Sprintf("%.2f %s", after.Balance, after.Currency))
+				return nil
+			}
+		}
+		spin.Stop("")
+		ui.Info("Still waiting? A purchase can take a few minutes to settle — check back with:")
+		fmt.Println("  " + ui.Bold("gora8 wallet show --agent "+fundAgentID))
+		return nil
+	},
+}
+
 var walletExportCmd = &cobra.Command{
 	Use:   "export",
 	Short: "Export transaction history as CSV",
@@ -262,6 +335,8 @@ func init() {
 	walletExportCmd.Flags().StringVar(&walletAgentID, "agent", "", "Agent ID (omit to export every agent you own)")
 	walletExportCmd.Flags().StringVar(&exportYear, "year", "", "Calendar year to export, e.g. 2026 (omit for all-time)")
 	walletExportCmd.Flags().StringVar(&exportOut, "out", "", "Write to this file instead of stdout")
+	walletFundCmd.Flags().StringVar(&fundAgentID, "agent", "", "Agent ID")
+	walletFundCmd.Flags().BoolVar(&fundNoOpen, "no-open", false, "Print the checkout link instead of opening a browser")
 
-	walletCmd.AddCommand(walletShowCmd, walletTransactionsCmd, walletWithdrawCmd, walletExportCmd)
+	walletCmd.AddCommand(walletShowCmd, walletTransactionsCmd, walletWithdrawCmd, walletFundCmd, walletExportCmd)
 }
