@@ -270,9 +270,10 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 	ui.Info("Run `gora8 chains list` to see every supported chain, and `gora8 chains add` to opt into Ethereum.")
 	if deployWalletAddress == "" {
 		ui.Info(fmt.Sprintf(
-			"Wherever %s actually runs (if that's not this machine), run `npx gora8-signer start %s` there too — "+
-				"that's what holds the key and answers gora8's signing requests.",
-			agentConfig.Name, signerName,
+			"Wherever %s actually runs (if that's not this machine), run `GORA8_AGENT_ID=%s npx gora8-signer start %s` there too — "+
+				"that's what holds the key and answers gora8's signing requests. GORA8_AGENT_ID must be set to exactly "+
+				"this (gora8's own id, not the local key name) or the signer can never fetch its Mandate.",
+			agentConfig.Name, resp.Agent.ID, signerName,
 		))
 	}
 	return nil
