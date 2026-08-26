@@ -277,6 +277,9 @@ type DeployRequest struct {
 	Policy       PolicyConfig `json:"policy"`
 	Registries   []string     `json:"registries"`
 	A2ACard      interface{}  `json:"a2a_card,omitempty"`
+	// Generated locally by gora8-signer init — gora8 has no server-side
+	// wallet generation path anymore. See SELF_CUSTODY_ARCHITECTURE.md.
+	WalletAddress string `json:"wallet_address"`
 }
 
 type Capability struct {

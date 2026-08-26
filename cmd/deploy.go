@@ -17,10 +17,11 @@ import (
 )
 
 var (
-	deployName         string
-	deployCapabilities string
-	deployPrice        string
-	deployRegistries   string
+	deployName          string
+	deployCapabilities  string
+	deployPrice         string
+	deployRegistries    string
+	deployWalletAddress string
 )
 
 var deployCmd = &cobra.Command{
@@ -115,6 +116,32 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 	}
 	spin1.Stop("A2A agent card generated")
 
+	// Step 1.5: Generate the agent's own EVM wallet locally — gora8 never
+	// generates or holds this key (see SELF_CUSTODY_ARCHITECTURE.md in
+	// the gora8 monorepo). Named after the agent so `gora8-signer start
+	// <name>` (run wherever the agent's own endpoint actually lives —
+	// often a different machine than the one running this deploy) can
+	// find the same key again.
+	signerName := slugify(agentConfig.Name)
+	var walletAddress string
+	if deployWalletAddress != "" {
+		walletAddress = deployWalletAddress
+		ui.Info(fmt.Sprintf("Using provided wallet address: %s", walletAddress))
+	} else {
+		spinSigner := ui.NewSpinner("Generating agent wallet (gora8-signer)...")
+		spinSigner.Start()
+		address, err := initSigner(signerName)
+		if err != nil {
+			spinSigner.Fail("Couldn't generate a wallet locally")
+			return fmt.Errorf(
+				"gora8-signer init failed: %w\n\nInstall it first: npm install -g gora8-signer (requires Node.js), "+
+					"or run 'npx gora8-signer init %s' yourself and pass the address with --wallet-address", err, signerName,
+			)
+		}
+		walletAddress = address
+		spinSigner.Stop(fmt.Sprintf("Wallet generated: %s", walletAddress))
+	}
+
 	// Step 2: Register the agent (identity, wallet, and spending policy are
 	// all provisioned by this one call).
 	spin2 := ui.NewSpinner("Registering agent...")
@@ -145,8 +172,9 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 			},
 			Currency: agentConfig.Policy.Currency,
 		},
-		Registries: agentConfig.Registries,
-		A2ACard:    a2aCard,
+		Registries:    agentConfig.Registries,
+		A2ACard:       a2aCard,
+		WalletAddress: walletAddress,
 	}
 	for _, cap := range agentConfig.Capabilities {
 		req.Capabilities = append(req.Capabilities, api.Capability{
@@ -240,6 +268,13 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 	ui.Info("Run `gora8 agents list` to see all your agents.")
 	ui.Info(fmt.Sprintf("Run `gora8 mandate %s` to see and verify its spending Mandate.", resp.Agent.ID))
 	ui.Info("Run `gora8 chains list` to see every supported chain, and `gora8 chains add` to opt into Ethereum.")
+	if deployWalletAddress == "" {
+		ui.Info(fmt.Sprintf(
+			"Wherever %s actually runs (if that's not this machine), run `npx gora8-signer start %s` there too — "+
+				"that's what holds the key and answers gora8's signing requests.",
+			agentConfig.Name, signerName,
+		))
+	}
 	return nil
 }
 
@@ -251,6 +286,53 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 // moment `gora8 deploy` finishes. Best-effort throughout: any failure
 // degrades to a one-line manual-install hint, never an error this
 // command returns.
+// initSigner shells out to gora8-signer (an npm package — see
+// SELF_CUSTODY_ARCHITECTURE.md and signer-ts/ in the gora8 monorepo)
+// to generate the agent's own EVM key locally and return its address.
+// Uses `npx --yes` rather than requiring a prior global install, same
+// convention as setupAgentSDK's npm/pip calls below. The key itself
+// never touches this process's stdout/stderr or any gora8 API call —
+// only the derived address does.
+func initSigner(name string) (string, error) {
+	cmd := exec.Command("npx", "--yes", "gora8-signer", "init", name)
+	output, err := cmd.Output()
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			return "", fmt.Errorf("%s", strings.TrimSpace(string(exitErr.Stderr)))
+		}
+		return "", err
+	}
+	address := strings.TrimSpace(string(output))
+	if address == "" {
+		return "", fmt.Errorf("gora8-signer init produced no address")
+	}
+	return address, nil
+}
+
+// slugify turns an agent's display name into a filesystem/keychain-safe
+// identifier for gora8-signer's local storage — lowercase, ASCII
+// letters/digits/hyphens only, so it's stable across the shells and
+// OSes a developer might run `gora8-signer start <name>` from later.
+func slugify(name string) string {
+	var b strings.Builder
+	lastWasHyphen := false
+	for _, r := range strings.ToLower(name) {
+		switch {
+		case r >= 'a' && r <= 'z' || r >= '0' && r <= '9':
+			b.WriteRune(r)
+			lastWasHyphen = false
+		case !lastWasHyphen:
+			b.WriteRune('-')
+			lastWasHyphen = true
+		}
+	}
+	slug := strings.Trim(b.String(), "-")
+	if slug == "" {
+		return "agent"
+	}
+	return slug
+}
+
 func setupAgentSDK(dir string) {
 	hasFile := func(name string) bool {
 		_, err := os.Stat(filepath.Join(dir, name))
@@ -426,4 +508,5 @@ func init() {
 	deployCmd.Flags().StringVar(&deployCapabilities, "capabilities", "", "Comma-separated capability IDs to set")
 	deployCmd.Flags().StringVar(&deployPrice, "price", "", "Override the price per task (e.g. 0.50)")
 	deployCmd.Flags().StringVar(&deployRegistries, "registries", "gora8", "Comma-separated audiences to publish to on deploy")
+	deployCmd.Flags().StringVar(&deployWalletAddress, "wallet-address", "", "Use an already-generated EVM address instead of running gora8-signer init locally (e.g. if you generated it elsewhere)")
 }
