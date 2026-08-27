@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -17,11 +18,12 @@ import (
 )
 
 var (
-	deployName          string
-	deployCapabilities  string
-	deployPrice         string
-	deployRegistries    string
-	deployWalletAddress string
+	deployName                string
+	deployCapabilities        string
+	deployPrice               string
+	deployRegistries          string
+	deployWalletAddress       string
+	deploySolanaWalletAddress string
 )
 
 var deployCmd = &cobra.Command{
@@ -116,30 +118,39 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 	}
 	spin1.Stop("A2A agent card generated")
 
-	// Step 1.5: Generate the agent's own EVM wallet locally — gora8 never
-	// generates or holds this key (see SELF_CUSTODY_ARCHITECTURE.md in
-	// the gora8 monorepo). Named after the agent so `gora8-signer start
-	// <name>` (run wherever the agent's own endpoint actually lives —
-	// often a different machine than the one running this deploy) can
-	// find the same key again.
+	// Step 1.5: Generate the agent's own EVM and Solana wallets locally —
+	// gora8 never generates or holds either key (see
+	// SELF_CUSTODY_ARCHITECTURE.md in the gora8 monorepo). Named after the
+	// agent so `gora8-signer start <name>` (run wherever the agent's own
+	// endpoint actually lives — often a different machine than the one
+	// running this deploy) can find the same keys again.
 	signerName := slugify(agentConfig.Name)
-	var walletAddress string
+	var walletAddress, solanaWalletAddress string
 	if deployWalletAddress != "" {
 		walletAddress = deployWalletAddress
+		solanaWalletAddress = deploySolanaWalletAddress
 		ui.Info(fmt.Sprintf("Using provided wallet address: %s", walletAddress))
+		if solanaWalletAddress == "" {
+			ui.Warning("No --solana-wallet-address given — this agent's Solana wallet will be custodied by gora8 until you provide one.")
+		}
 	} else {
 		spinSigner := ui.NewSpinner("Generating agent wallet (gora8-signer)...")
 		spinSigner.Start()
-		address, err := initSigner(signerName)
+		evmAddress, solAddress, err := initSigner(signerName)
 		if err != nil {
 			spinSigner.Fail("Couldn't generate a wallet locally")
 			return fmt.Errorf(
 				"gora8-signer init failed: %w\n\nInstall it first: npm install -g gora8-signer (requires Node.js), "+
-					"or run 'npx gora8-signer init %s' yourself and pass the address with --wallet-address", err, signerName,
+					"or run 'npx gora8-signer init %s' yourself and pass the addresses with --wallet-address/--solana-wallet-address", err, signerName,
 			)
 		}
-		walletAddress = address
-		spinSigner.Stop(fmt.Sprintf("Wallet generated: %s", walletAddress))
+		walletAddress = evmAddress
+		solanaWalletAddress = solAddress
+		if solanaWalletAddress != "" {
+			spinSigner.Stop(fmt.Sprintf("Wallets generated: %s (EVM), %s (Solana)", walletAddress, solanaWalletAddress))
+		} else {
+			spinSigner.Stop(fmt.Sprintf("Wallet generated: %s", walletAddress))
+		}
 	}
 
 	// Step 2: Register the agent (identity, wallet, and spending policy are
@@ -172,9 +183,10 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 			},
 			Currency: agentConfig.Policy.Currency,
 		},
-		Registries:    agentConfig.Registries,
-		A2ACard:       a2aCard,
-		WalletAddress: walletAddress,
+		Registries:          agentConfig.Registries,
+		A2ACard:             a2aCard,
+		WalletAddress:       walletAddress,
+		SolanaWalletAddress: solanaWalletAddress,
 	}
 	for _, cap := range agentConfig.Capabilities {
 		req.Capabilities = append(req.Capabilities, api.Capability{
@@ -287,27 +299,45 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 // moment `gora8 deploy` finishes. Best-effort throughout: any failure
 // degrades to a one-line manual-install hint, never an error this
 // command returns.
+// signerInitResult mirrors gora8-signer init's JSON stdout shape
+// (cli.ts) — {evmAddress, solanaAddress}, both generated together now
+// that Solana self-custody exists alongside EVM's.
+type signerInitResult struct {
+	EvmAddress    string `json:"evmAddress"`
+	SolanaAddress string `json:"solanaAddress"`
+}
+
 // initSigner shells out to gora8-signer (an npm package — see
 // SELF_CUSTODY_ARCHITECTURE.md and signer-ts/ in the gora8 monorepo)
-// to generate the agent's own EVM key locally and return its address.
-// Uses `npx --yes` rather than requiring a prior global install, same
-// convention as setupAgentSDK's npm/pip calls below. The key itself
-// never touches this process's stdout/stderr or any gora8 API call —
-// only the derived address does.
-func initSigner(name string) (string, error) {
+// to generate the agent's own EVM and Solana keys locally and return
+// both addresses. Uses `npx --yes` rather than requiring a prior global
+// install, same convention as setupAgentSDK's npm/pip calls below.
+// Neither key itself ever touches this process's stdout/stderr or any
+// gora8 API call — only the two derived addresses do.
+func initSigner(name string) (evmAddress string, solanaAddress string, err error) {
 	cmd := exec.Command("npx", "--yes", "gora8-signer", "init", name)
 	output, err := cmd.Output()
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {
-			return "", fmt.Errorf("%s", strings.TrimSpace(string(exitErr.Stderr)))
+			return "", "", fmt.Errorf("%s", strings.TrimSpace(string(exitErr.Stderr)))
 		}
-		return "", err
+		return "", "", err
 	}
-	address := strings.TrimSpace(string(output))
-	if address == "" {
-		return "", fmt.Errorf("gora8-signer init produced no address")
+	var result signerInitResult
+	if err := json.Unmarshal(output, &result); err != nil {
+		return "", "", fmt.Errorf("gora8-signer init produced unparseable output: %w", err)
 	}
-	return address, nil
+	if result.EvmAddress == "" {
+		return "", "", fmt.Errorf("gora8-signer init produced no EVM address")
+	}
+	// A missing Solana address degrades to gora8-side custody for that
+	// one wallet (see services/deploy.ts's DeployInput doc comment) —
+	// worth a clear message here rather than a silent empty field,
+	// since it's the one case this CLI can't fully guarantee self-custody.
+	if result.SolanaAddress == "" {
+		fmt.Fprintln(os.Stderr, "Warning: gora8-signer init produced no Solana address — this agent's Solana wallet will be custodied by gora8 until you re-run with an updated gora8-signer.")
+	}
+	return result.EvmAddress, result.SolanaAddress, nil
 }
 
 // slugify turns an agent's display name into a filesystem/keychain-safe
@@ -510,4 +540,5 @@ func init() {
 	deployCmd.Flags().StringVar(&deployPrice, "price", "", "Override the price per task (e.g. 0.50)")
 	deployCmd.Flags().StringVar(&deployRegistries, "registries", "gora8", "Comma-separated audiences to publish to on deploy")
 	deployCmd.Flags().StringVar(&deployWalletAddress, "wallet-address", "", "Use an already-generated EVM address instead of running gora8-signer init locally (e.g. if you generated it elsewhere)")
+	deployCmd.Flags().StringVar(&deploySolanaWalletAddress, "solana-wallet-address", "", "Use an already-generated Solana address instead of running gora8-signer init locally — only read when --wallet-address is also set")
 }

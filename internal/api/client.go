@@ -278,8 +278,13 @@ type DeployRequest struct {
 	Registries   []string     `json:"registries"`
 	A2ACard      interface{}  `json:"a2a_card,omitempty"`
 	// Generated locally by gora8-signer init — gora8 has no server-side
-	// wallet generation path anymore. See SELF_CUSTODY_ARCHITECTURE.md.
+	// EVM wallet generation path anymore. See SELF_CUSTODY_ARCHITECTURE.md.
 	WalletAddress string `json:"wallet_address"`
+	// Also generated locally by gora8-signer init, same as WalletAddress —
+	// optional (omitted, gora8 falls back to generating and holding this
+	// one itself) only for a signer version that predates Solana
+	// self-custody. See services/deploy.ts's DeployInput doc comment.
+	SolanaWalletAddress string `json:"solana_wallet_address,omitempty"`
 }
 
 type Capability struct {
