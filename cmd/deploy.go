@@ -153,62 +153,121 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Step 2: Register the agent (identity, wallet, and spending policy are
-	// all provisioned by this one call).
-	spin2 := ui.NewSpinner("Registering agent...")
-	spin2.Start()
-
-	// Build the deploy request.
-	req := &api.DeployRequest{
-		Name:        agentConfig.Name,
-		Description: agentConfig.Description,
-		Version:     agentConfig.Version,
-		Endpoint:    agentConfig.Endpoint,
-		Pricing: api.Pricing{
-			Model:    agentConfig.Pricing.Model,
-			Amount:   agentConfig.Pricing.Amount,
-			Currency: agentConfig.Pricing.Currency,
-		},
-		Policy: api.PolicyConfig{
-			Acceptance: &api.AcceptanceLimits{
-				PerTransactionLimit: agentConfig.Policy.Acceptance.PerTransactionLimit,
-				DailyCap:            agentConfig.Policy.Acceptance.DailyCap,
-				MonthlyCap:          agentConfig.Policy.Acceptance.MonthlyCap,
-				ApprovalThreshold:   agentConfig.Policy.Acceptance.ApprovalThreshold,
-			},
-			Spending: &api.SpendingLimits{
-				PerTransactionLimit: agentConfig.Policy.Spending.PerTransactionLimit,
-				DailyCap:            agentConfig.Policy.Spending.DailyCap,
-				MonthlyCap:          agentConfig.Policy.Spending.MonthlyCap,
-			},
-			Currency: agentConfig.Policy.Currency,
-		},
-		Registries:          agentConfig.Registries,
-		A2ACard:             a2aCard,
-		WalletAddress:       walletAddress,
-		SolanaWalletAddress: solanaWalletAddress,
-	}
-	for _, cap := range agentConfig.Capabilities {
-		req.Capabilities = append(req.Capabilities, api.Capability{
-			ID:          cap.ID,
-			Description: cap.Description,
-		})
-	}
-
 	client := api.New(cfg)
-	resp, err := client.DeployAgent(req)
-	if err != nil {
-		spin2.Fail("Deployment failed")
-		return err
+
+	// Step 2: Register the agent (identity, wallet, and spending policy are
+	// all provisioned by this one call) — or, if agent.yaml already
+	// remembers an id from a prior successful deploy (written back below),
+	// update that agent instead. Without this branch, every retry —
+	// including the ordinary "fix a config error and re-run" case —
+	// silently registered a brand-new on-chain ERC-8004 identity for the
+	// same wallet, spending real relay-wallet gas each time and leaving
+	// the old agent id orphaned. Policy is deliberately not part of the
+	// update path — 'gora8 policy set' owns ongoing policy changes, so a
+	// redeploy can never silently overwrite a policy tuned from the
+	// dashboard.
+	var (
+		agentID    string
+		dashURL    string
+		walletOut  string
+		mandate    *api.MandateSyncResult
+		chains     []api.ChainActivation
+		actorRef   *api.ActorRef
+		statusText string
+	)
+
+	if agentConfig.ID != "" {
+		spin2 := ui.NewSpinner("Updating agent...")
+		spin2.Start()
+		updateReq := &api.UpdateAgentRequest{
+			Name:        agentConfig.Name,
+			Description: agentConfig.Description,
+			Endpoint:    agentConfig.Endpoint,
+			Pricing: api.Pricing{
+				Model:    agentConfig.Pricing.Model,
+				Amount:   agentConfig.Pricing.Amount,
+				Currency: agentConfig.Pricing.Currency,
+			},
+		}
+		for _, cap := range agentConfig.Capabilities {
+			updateReq.Capabilities = append(updateReq.Capabilities, api.Capability{
+				ID:          cap.ID,
+				Description: cap.Description,
+			})
+		}
+		agent, err := client.UpdateAgent(agentConfig.ID, updateReq)
+		if err != nil {
+			spin2.Fail("Update failed")
+			return err
+		}
+		spin2.Stop("Agent updated")
+		agentID, dashURL, walletOut, actorRef, statusText = agent.ID, agent.DashboardURL, walletAddress, agent.ActorRef, agent.Status
+	} else {
+		spin2 := ui.NewSpinner("Registering agent...")
+		spin2.Start()
+
+		req := &api.DeployRequest{
+			Name:        agentConfig.Name,
+			Description: agentConfig.Description,
+			Version:     agentConfig.Version,
+			Endpoint:    agentConfig.Endpoint,
+			Pricing: api.Pricing{
+				Model:    agentConfig.Pricing.Model,
+				Amount:   agentConfig.Pricing.Amount,
+				Currency: agentConfig.Pricing.Currency,
+			},
+			Policy: api.PolicyConfig{
+				Acceptance: &api.AcceptanceLimits{
+					PerTransactionLimit: agentConfig.Policy.Acceptance.PerTransactionLimit,
+					DailyCap:            agentConfig.Policy.Acceptance.DailyCap,
+					MonthlyCap:          agentConfig.Policy.Acceptance.MonthlyCap,
+					ApprovalThreshold:   agentConfig.Policy.Acceptance.ApprovalThreshold,
+				},
+				Spending: &api.SpendingLimits{
+					PerTransactionLimit: agentConfig.Policy.Spending.PerTransactionLimit,
+					DailyCap:            agentConfig.Policy.Spending.DailyCap,
+					MonthlyCap:          agentConfig.Policy.Spending.MonthlyCap,
+				},
+				Currency: agentConfig.Policy.Currency,
+			},
+			Registries:          agentConfig.Registries,
+			A2ACard:             a2aCard,
+			WalletAddress:       walletAddress,
+			SolanaWalletAddress: solanaWalletAddress,
+		}
+		for _, cap := range agentConfig.Capabilities {
+			req.Capabilities = append(req.Capabilities, api.Capability{
+				ID:          cap.ID,
+				Description: cap.Description,
+			})
+		}
+
+		resp, err := client.DeployAgent(req)
+		if err != nil {
+			spin2.Fail("Deployment failed")
+			return err
+		}
+		spin2.Stop("Agent registered — identity, wallet, and spending Mandate attached")
+		agentID, dashURL, walletOut = resp.Agent.ID, resp.DashboardURL, resp.WalletAddr
+		mandate, chains, actorRef, statusText = resp.Mandate, resp.Chains, resp.Agent.ActorRef, resp.Agent.Status
+
+		// Remember this agent's id so a future `gora8 deploy` here updates
+		// it instead of minting a brand-new on-chain identity.
+		agentConfig.ID = agentID
+		if err := saveAgentYAML(agentFilePath, agentConfig); err != nil {
+			ui.Warning(fmt.Sprintf(
+				"Deployed, but couldn't save the agent id back to %s: %v — future deploys here will register a new agent unless you add `id: %s` to it yourself.",
+				agentFilePath, err, agentID,
+			))
+		}
 	}
-	spin2.Stop("Agent registered — identity, wallet, and spending Mandate attached")
 
 	// Step 3: Publish to the configured audiences (gora8's own directory by
 	// default — free and instant, no external dependency).
 	spin3 := ui.NewSpinner(fmt.Sprintf("Publishing to %s...", strings.Join(agentConfig.Registries, ", ")))
 	spin3.Start()
-	if _, err := client.PublishAgent(resp.Agent.ID, &api.PublishRequest{Registries: agentConfig.Registries}); err != nil {
-		spin3.Fail("Publish failed — run 'gora8 publish " + resp.Agent.ID + "' to retry")
+	if _, err := client.PublishAgent(agentID, &api.PublishRequest{Registries: agentConfig.Registries}); err != nil {
+		spin3.Fail("Publish failed — run 'gora8 publish " + agentID + "' to retry")
 	} else {
 		spin3.Stop("Published")
 	}
@@ -226,31 +285,32 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 
 	// Output summary.
 	details := [][]string{
-		{"Agent ID", resp.Agent.ID},
-		{"Status", ui.StatusColor(resp.Agent.Status)},
+		{"Agent ID", agentID},
 	}
-	if resp.WalletAddr != "" {
-		details = append(details, []string{"Wallet", resp.WalletAddr})
+	if statusText != "" {
+		details = append(details, []string{"Status", ui.StatusColor(statusText)})
 	}
-	if resp.Mandate != nil {
-		details = append(details, []string{"Mandate", resp.Mandate.MandateID})
-		if resp.Mandate.Enforcement != nil {
-			if resp.Mandate.Enforcement.Delegated {
+	if walletOut != "" {
+		details = append(details, []string{"Wallet", walletOut})
+	}
+	if mandate != nil {
+		details = append(details, []string{"Mandate", mandate.MandateID})
+		if mandate.Enforcement != nil {
+			if mandate.Enforcement.Delegated {
 				details = append(details, []string{"Enforcement", ui.Green("active")})
 			} else {
-				details = append(details, []string{"Enforcement", ui.Yellow("not yet active — run `gora8 mandate issue-onchain " + resp.Agent.ID + "`")})
+				details = append(details, []string{"Enforcement", ui.Yellow("not yet active — run `gora8 mandate issue-onchain " + agentID + "`")})
 			}
 		}
 	}
-	if resp.Agent.ActorRef != nil {
+	if actorRef != nil {
 		// Not populated by the current API — see the ActorRef doc comment
 		// in internal/api/client.go. Rendered defensively so this command
 		// doesn't need another code change the day it is.
-		details = append(details, []string{"Identity", fmt.Sprintf("%s:%s", resp.Agent.ActorRef.Namespace, resp.Agent.ActorRef.ActorID)})
+		details = append(details, []string{"Identity", fmt.Sprintf("%s:%s", actorRef.Namespace, actorRef.ActorID)})
 	}
-	dashURL := resp.DashboardURL
-	if dashURL == "" && resp.Agent.ID != "" {
-		dashURL = fmt.Sprintf("https://app.gora8.com/agents/%s", resp.Agent.ID)
+	if dashURL == "" && agentID != "" {
+		dashURL = fmt.Sprintf("https://app.gora8.com/agents/%s", agentID)
 	}
 	details = append(details, []string{"Dashboard", ui.Cyan(dashURL)})
 
@@ -262,30 +322,30 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 	// One command, multiple chains: report the automatic rollout the same
 	// deploy call just triggered (api/src/lib/chains.ts's
 	// getAutoRolloutChains() — Ethereum isn't in it, see `gora8 chains`).
-	if len(resp.Chains) > 0 {
+	if len(chains) > 0 {
 		active, awaitingGas := 0, 0
-		for _, c := range resp.Chains {
+		for _, c := range chains {
 			if c.Status == "active" {
 				active++
 			} else if c.Status == "awaiting_gas" {
 				awaitingGas++
 			}
 		}
-		ui.Info(fmt.Sprintf("Rolled out to %d/%d additional chains.", active, len(resp.Chains)))
+		ui.Info(fmt.Sprintf("Rolled out to %d/%d additional chains.", active, len(chains)))
 		if awaitingGas > 0 {
 			ui.Warning(fmt.Sprintf("%d chain(s) need the agent wallet funded with native gas — see `gora8 wallet fund` and `gora8 chains list`.", awaitingGas))
 		}
 	}
 
 	ui.Info("Run `gora8 agents list` to see all your agents.")
-	ui.Info(fmt.Sprintf("Run `gora8 mandate %s` to see and verify its spending Mandate.", resp.Agent.ID))
+	ui.Info(fmt.Sprintf("Run `gora8 mandate %s` to see and verify its spending Mandate.", agentID))
 	ui.Info("Run `gora8 chains list` to see every supported chain, and `gora8 chains add` to opt into Ethereum.")
 	if deployWalletAddress == "" {
 		ui.Info(fmt.Sprintf(
 			"Wherever %s actually runs (if that's not this machine), run `GORA8_AGENT_ID=%s npx gora8-signer start %s` there too — "+
 				"that's what holds the key and answers gora8's signing requests. GORA8_AGENT_ID must be set to exactly "+
 				"this (gora8's own id, not the local key name) or the signer can never fetch its Mandate.",
-			agentConfig.Name, resp.Agent.ID, signerName,
+			agentConfig.Name, agentID, signerName,
 		))
 	}
 	return nil
@@ -369,18 +429,28 @@ func setupAgentSDK(dir string) {
 		_, err := os.Stat(filepath.Join(dir, name))
 		return err == nil
 	}
-	runIn := func(name string, args ...string) error {
+	// Returns the command's combined stdout+stderr alongside the error, so a
+	// double failure below can show *why* rather than just that it failed —
+	// e.g. pip refusing with PEP 668's "externally-managed-environment" on a
+	// Homebrew Python was previously swallowed entirely (cmd.Run() discards
+	// output that isn't explicitly wired up), leaving only a generic
+	// "Couldn't install automatically" with no way to tell what to fix.
+	runIn := func(name string, args ...string) (string, error) {
 		cmd := exec.Command(name, args...)
 		cmd.Dir = dir
-		return cmd.Run()
+		out, err := cmd.CombinedOutput()
+		return strings.TrimSpace(string(out)), err
 	}
 
 	switch {
 	case hasFile("package.json"):
 		spin := ui.NewSpinner("Installing gora8-agent (npm)...")
 		spin.Start()
-		if err := runIn("npm", "install", "gora8-agent", "--save"); err != nil {
+		if out, err := runIn("npm", "install", "gora8-agent", "--save"); err != nil {
 			spin.Fail("Couldn't install gora8-agent automatically")
+			if out != "" {
+				ui.Info(out)
+			}
 			ui.Info("Run manually: npm install gora8-agent")
 			return
 		}
@@ -392,10 +462,15 @@ func setupAgentSDK(dir string) {
 		pkgs := pipPackagesFor(manifestPath)
 		spin := ui.NewSpinner("Installing gora8-agent (pip)...")
 		spin.Start()
-		if runIn("pip", append([]string{"install", "-q"}, pkgs...)...) != nil && runIn("pip3", append([]string{"install", "-q"}, pkgs...)...) != nil {
-			spin.Fail("Couldn't install gora8-agent automatically")
-			ui.Info("Added to requirements.txt — run: pip install -r requirements.txt")
-			return
+		if _, err := runIn("pip", append([]string{"install", "-q"}, pkgs...)...); err != nil {
+			if out, err := runIn("pip3", append([]string{"install", "-q"}, pkgs...)...); err != nil {
+				spin.Fail("Couldn't install gora8-agent automatically")
+				if out != "" {
+					ui.Info(out)
+				}
+				ui.Info("Added to requirements.txt — run: pip install -r requirements.txt")
+				return
+			}
 		}
 		spin.Stop(strings.Join(pkgs, " ") + " installed and added to requirements.txt")
 
@@ -403,10 +478,15 @@ func setupAgentSDK(dir string) {
 		pkgs := pipPackagesFor(filepath.Join(dir, "pyproject.toml"))
 		spin := ui.NewSpinner("Installing gora8-agent (pip)...")
 		spin.Start()
-		if runIn("pip", append([]string{"install", "-q"}, pkgs...)...) != nil && runIn("pip3", append([]string{"install", "-q"}, pkgs...)...) != nil {
-			spin.Fail("Couldn't install gora8-agent automatically")
-			ui.Info("Run manually: pip install " + strings.Join(pkgs, " "))
-			return
+		if _, err := runIn("pip", append([]string{"install", "-q"}, pkgs...)...); err != nil {
+			if out, err := runIn("pip3", append([]string{"install", "-q"}, pkgs...)...); err != nil {
+				spin.Fail("Couldn't install gora8-agent automatically")
+				if out != "" {
+					ui.Info(out)
+				}
+				ui.Info("Run manually: pip install " + strings.Join(pkgs, " "))
+				return
+			}
 		}
 		spin.Stop(strings.Join(pkgs, " ") + " installed")
 		ui.Info("Add them to pyproject.toml's own dependency list too, for reproducible installs elsewhere (poetry add / uv add).")
@@ -532,6 +612,23 @@ func loadAgentYAML(dir string) (*card.AgentYAML, string, error) {
 	}
 
 	return &agentCfg, filePath, nil
+}
+
+// saveAgentYAML writes agentCfg back to filePath — used once, right after
+// a successful first deploy, purely to persist the id gora8 just assigned
+// so a later `gora8 deploy` here updates this agent instead of registering
+// a new one. Re-marshals the whole file (same pattern `gora8 init` already
+// uses), so hand-added comments/formatting in an existing agent.yaml won't
+// survive — an accepted tradeoff for a file this small and machine-owned.
+func saveAgentYAML(filePath string, agentCfg *card.AgentYAML) error {
+	out, err := yaml.Marshal(agentCfg)
+	if err != nil {
+		return fmt.Errorf("marshal %s: %w", filePath, err)
+	}
+	if err := os.WriteFile(filePath, out, 0o644); err != nil {
+		return fmt.Errorf("write %s: %w", filePath, err)
+	}
+	return nil
 }
 
 func init() {

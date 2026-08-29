@@ -42,6 +42,11 @@ type Provider struct {
 
 // AgentYAML mirrors the structure of agent.yaml for card generation.
 type AgentYAML struct {
+	// ID is absent from a freshly-scaffolded agent.yaml — `gora8 deploy`
+	// writes it back in after the first successful registration, so a
+	// later `gora8 deploy` on the same project updates that agent instead
+	// of registering a brand-new one (see cmd/deploy.go's runDeploy).
+	ID           string           `yaml:"id,omitempty" json:"id,omitempty"`
 	Name         string           `yaml:"name"        json:"name"`
 	Description  string           `yaml:"description" json:"description"`
 	Version      string           `yaml:"version"     json:"version"`

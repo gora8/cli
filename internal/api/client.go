@@ -385,6 +385,27 @@ func (c *Client) DeployAgent(req *DeployRequest) (*DeployResponse, error) {
 	return &resp, nil
 }
 
+// UpdateAgentRequest is the payload for PATCH /v1/agents/:id — a subset of
+// DeployRequest's fields; the backend doesn't accept wallet address or
+// registries through this path (a wallet is fixed at creation, and policy
+// has its own dedicated SetPolicy/PATCH .../policy endpoint so a redeploy
+// can never silently clobber a policy tuned from the dashboard).
+type UpdateAgentRequest struct {
+	Name         string       `json:"name"`
+	Description  string       `json:"description"`
+	Endpoint     string       `json:"endpoint"`
+	Capabilities []Capability `json:"capabilities"`
+	Pricing      Pricing      `json:"pricing"`
+}
+
+func (c *Client) UpdateAgent(id string, req *UpdateAgentRequest) (*Agent, error) {
+	var agent Agent
+	if err := c.do("PATCH", "/v1/agents/"+id, req, &agent); err != nil {
+		return nil, err
+	}
+	return &agent, nil
+}
+
 func (c *Client) ListAgents() ([]Agent, error) {
 	var result struct {
 		Agents []Agent `json:"agents"`
