@@ -244,6 +244,13 @@ type Agent struct {
 	// protocol" — the did:web identity and off-chain signed Mandate are
 	// both already real and independently verifiable regardless.
 	ActorRef *ActorRef `json:"actor_ref,omitempty"`
+
+	// "provisioning" | "fargate" | "host_failed" — absent (omitempty)
+	// for a Free-tier/self-hosted agent, matching the API's own
+	// omit-when-"self" behavior (see routes/agents.ts's formatAgent()).
+	// See HostAgent's doc comment for the full async host/poll flow.
+	HostType  string `json:"host_type,omitempty"`
+	HostError string `json:"host_error,omitempty"`
 }
 
 // ActorRef identifies an actor by reference to an external identity
@@ -434,6 +441,57 @@ func (c *Client) ResumeAgent(id string) error {
 
 func (c *Client) DeleteAgent(id string) error {
 	return c.do("DELETE", "/v1/agents/"+id, nil, nil)
+}
+
+// HostRequest is POST /v1/agents/:id/host's payload — see that route's
+// own doc comment in routes/agents.ts for why the response is
+// deliberately just {"status":"provisioning"}, not a finished endpoint:
+// provisioning can outlast a normal HTTP client timeout, so the caller
+// is expected to poll GetAgent() until HostType leaves "provisioning"
+// (see PollHosting below).
+type HostRequest struct {
+	ImageURI      string `json:"image_uri"`
+	ContainerPort int    `json:"container_port,omitempty"`
+	CPU           int    `json:"cpu,omitempty"`
+	Memory        int    `json:"memory,omitempty"`
+}
+
+type HostResponse struct {
+	Status string `json:"status"`
+}
+
+func (c *Client) HostAgent(id string, req *HostRequest) (*HostResponse, error) {
+	var resp HostResponse
+	if err := c.do("POST", "/v1/agents/"+id+"/host", req, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+func (c *Client) UnhostAgent(id string) error {
+	return c.do("DELETE", "/v1/agents/"+id+"/host", nil, nil)
+}
+
+// RegistryCredentials mirrors POST /v1/agents/:id/host/registry-credentials's
+// response — a real, short-lived (15 min) AWS STS credential scoped to
+// this one agent's own gora8-managed ECR repo and nothing else (see
+// ecr-credentials.ts's own doc comment for the IAM mechanics). Field
+// names match the API's snake_case JSON exactly.
+type RegistryCredentials struct {
+	RepositoryURI   string `json:"repository_uri"`
+	AccessKeyID     string `json:"access_key_id"`
+	SecretAccessKey string `json:"secret_access_key"`
+	SessionToken    string `json:"session_token"`
+	Expiration      string `json:"expiration"`
+	Region          string `json:"region"`
+}
+
+func (c *Client) GetRegistryCredentials(agentID string) (*RegistryCredentials, error) {
+	var creds RegistryCredentials
+	if err := c.do("POST", "/v1/agents/"+agentID+"/host/registry-credentials", nil, &creds); err != nil {
+		return nil, err
+	}
+	return &creds, nil
 }
 
 func (c *Client) ListChains() ([]SupportedChain, error) {

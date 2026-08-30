@@ -105,13 +105,39 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 		agentConfig.Registries = []string{"gora8"}
 	}
 
+	// --host/--host-image means the real endpoint doesn't exist yet — only
+	// known once hosting provisions it, later in this same command. The
+	// A2A card needs a non-empty url to validate, but the API's own
+	// endpoint-reachability check (assertSafeEndpointUrl, routes/agents.ts)
+	// only runs when Endpoint is non-empty — so unlike the card, the
+	// actual deploy request keeps Endpoint genuinely blank rather than a
+	// placeholder that would just fail that reachability check instead.
+	// cardConfig is a shallow copy specifically so this placeholder never
+	// leaks into agentConfig.Endpoint, which req.Endpoint below still
+	// reads. This placeholder never needs a follow-up fix once hosting
+	// resolves the real endpoint, checked rather than assumed: every
+	// surface a real caller ever sees (routes/agents.ts's /publish,
+	// /agents/:id/did.json, /agents/:id/registration.json) is rebuilt
+	// fresh from the live Agent row on every request — /publish always
+	// advertises gora8's own stable invoke-gateway URL, never the raw
+	// endpoint directly — and the a2a_card blob this placeholder lands in
+	// is written once at deploy and never read back by anything server-side.
+	// It's genuinely dead data, not a discoverability bug.
+	cardConfig := agentConfig
+	if (deployHost || deployHostImage != "") && agentConfig.Endpoint == "" {
+		placeholder := *agentConfig
+		placeholder.Endpoint = "https://pending.gora8.com/" + slugify(agentConfig.Name)
+		cardConfig = &placeholder
+		ui.Info("No endpoint set — using a placeholder A2A card URL until hosting provisions one below.")
+	}
+
 	fmt.Println()
 
 	// Step 1: Generate A2A card.
 	spin1 := ui.NewSpinner("Generating A2A agent card...")
 	spin1.Start()
 	time.Sleep(300 * time.Millisecond) // Brief visual pause for UX.
-	a2aCard := card.Generate(agentConfig)
+	a2aCard := card.Generate(cardConfig)
 	if err := card.Validate(a2aCard); err != nil {
 		spin1.Fail("A2A card validation failed")
 		return fmt.Errorf("invalid agent config: %w", err)
@@ -270,6 +296,16 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 		spin3.Fail("Publish failed — run 'gora8 publish " + agentID + "' to retry")
 	} else {
 		spin3.Stop("Published")
+	}
+
+	// Step 3.5: Pro-tier hosted compute (see docs/hosting/gora8-managed-fargate.md)
+	// — only runs at all if --host/--host-image was passed; runHostFlow
+	// itself no-ops otherwise. Same "don't fail the whole deploy" pattern
+	// as publish above: the agent is already real and usable at this
+	// point (self-hosted, if endpoint was set in agent.yaml) even if
+	// hosting specifically fails.
+	if err := runHostFlow(client, agentID, searchPath); err != nil {
+		ui.Warning(fmt.Sprintf("Hosting failed: %v — the agent itself deployed fine; retry hosting with the API directly once fixed.", err))
 	}
 
 	// Step 4: Best-effort local SDK setup — so the agent's own handler
