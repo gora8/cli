@@ -12,6 +12,7 @@ import (
 	"github.com/gora8/cli/internal/api"
 	"github.com/gora8/cli/internal/card"
 	"github.com/gora8/cli/internal/config"
+	"github.com/gora8/cli/internal/openapi"
 	"github.com/gora8/cli/internal/ui"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
@@ -24,6 +25,8 @@ var (
 	deployRegistries          string
 	deployWalletAddress       string
 	deploySolanaWalletAddress string
+	deployFromOpenAPI         string
+	deployOperations          string
 )
 
 var deployCmd = &cobra.Command{
@@ -48,7 +51,15 @@ audiences like x402 Bazaar.
 Examples:
   gora8 deploy                      # Deploy from current directory
   gora8 deploy ./my-agent/          # Deploy from a specific path
-  gora8 deploy --name "My Agent"    # Override agent name`,
+  gora8 deploy --name "My Agent"    # Override agent name
+
+  # Wrapping an existing REST API instead of an agent framework: derive
+  # capabilities from its OpenAPI spec, curated to a subset, and get a
+  # market price reference for the first one. Requires endpoint in
+  # agent.yaml to point at a running gora8_adapters.rest wrapper
+  # (adapters-python) — this flag only touches agent.yaml, it doesn't run
+  # anything.
+  gora8 deploy --from-openapi ./openapi.json --operations textToSpeech,listVoices`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: runDeploy,
 }
@@ -62,6 +73,7 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 		ui.Error("Not authenticated. Run: gora8 auth login")
 		return nil
 	}
+	client := api.New(cfg)
 
 	// Determine search path.
 	searchPath := "."
@@ -77,6 +89,37 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 
 	ui.Header("Deploying Agent")
 	ui.Info(fmt.Sprintf("Config: %s", agentFilePath))
+
+	// --from-openapi derives capabilities from an existing OpenAPI spec
+	// instead of hand-authoring them — for a SaaS company wrapping an
+	// existing multi-operation REST API (see adapters-python's rest.py,
+	// which is what actually runs the wrapper this endpoint points at;
+	// this flag only ever touches agent.yaml, never calls the wrapped API
+	// itself). Runs before "Apply flag overrides" below so an explicit
+	// --capabilities still wins if both are given.
+	usedOpenAPI := deployFromOpenAPI != ""
+	if usedOpenAPI {
+		var allow []string
+		if deployOperations != "" {
+			allow = strings.Split(deployOperations, ",")
+		}
+		spin := ui.NewSpinner(fmt.Sprintf("Deriving capabilities from %s...", deployFromOpenAPI))
+		spin.Start()
+		caps, err := openapi.Capabilities(deployFromOpenAPI, allow)
+		if err != nil {
+			spin.Fail("Couldn't parse OpenAPI spec")
+			return err
+		}
+		if len(caps) == 0 {
+			spin.Fail("No operations found")
+			return fmt.Errorf("%s declared no operations matching --operations, or none at all", deployFromOpenAPI)
+		}
+		agentConfig.Capabilities = make([]card.YAMLCapability, 0, len(caps))
+		for _, c := range caps {
+			agentConfig.Capabilities = append(agentConfig.Capabilities, card.YAMLCapability{ID: c.ID, Description: c.Description})
+		}
+		spin.Stop(fmt.Sprintf("%d capabilit%s derived: %s", len(caps), pluralY(len(caps)), joinCapabilityIDs(caps)))
+	}
 
 	// Apply flag overrides.
 	if deployName != "" {
@@ -94,6 +137,12 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 	}
 	if deployPrice != "" {
 		agentConfig.Pricing.Amount = deployPrice
+	} else if usedOpenAPI && len(agentConfig.Capabilities) > 0 {
+		// Only a suggestion, and only when the user hasn't already told us
+		// a price — gora8's pricing is per-agent, not per-capability (see
+		// card.YAMLPricing), so this necessarily reads as one reference
+		// point (the first derived capability), not a per-operation quote.
+		suggestPriceFromReference(client, agentConfig)
 	}
 	if err := validatePricingModel(agentConfig.Pricing.Model); err != nil {
 		return err
@@ -178,8 +227,6 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 			spinSigner.Stop(fmt.Sprintf("Wallet generated: %s", walletAddress))
 		}
 	}
-
-	client := api.New(cfg)
 
 	// Step 2: Register the agent (identity, wallet, and spending policy are
 	// all provisioned by this one call) — or, if agent.yaml already
@@ -436,6 +483,60 @@ func initSigner(name string) (evmAddress string, solanaAddress string, err error
 	return result.EvmAddress, result.SolanaAddress, nil
 }
 
+// pluralY returns "y" for a count of 1, "ies" otherwise — "1 capability"
+// vs "3 capabilities".
+func pluralY(n int) string {
+	if n == 1 {
+		return "y"
+	}
+	return "ies"
+}
+
+func joinCapabilityIDs(caps []openapi.Capability) string {
+	ids := make([]string, len(caps))
+	for i, c := range caps {
+		ids[i] = c.ID
+	}
+	return strings.Join(ids, ", ")
+}
+
+// suggestPriceFromReference looks up GET /v1/market/price-reference for
+// the first --from-openapi-derived capability and prints what comparable
+// gora8-native agents charge. Deliberately informational only, never
+// mutates agentConfig.Pricing.Amount itself — gora8's pricing is one
+// amount per agent, not per capability (card.YAMLPricing), so this is
+// necessarily a single reference point, not a real per-operation quote,
+// and a market-derived guess overwriting a price the developer actually
+// meant to set (even agent.example.yaml ships with a non-empty default)
+// is worse than not offering one; --price is the explicit, unambiguous
+// way to set it. Never fails the deploy — same "best-effort" pattern as
+// publish/hosting below.
+func suggestPriceFromReference(client *api.Client, agentConfig *card.AgentYAML) {
+	reference := agentConfig.Capabilities[0].ID
+	resp, err := client.GetPriceReference(reference)
+	if err != nil {
+		ui.Warning(fmt.Sprintf("Couldn't fetch a price reference for %q: %v — set --price yourself.", reference, err))
+		return
+	}
+	if resp.SampleSize == 0 || resp.Median == nil {
+		ui.Info(fmt.Sprintf("No comparable gora8 agents offer %q yet, so there's no price reference — using agent.yaml's own pricing (%s %s).", reference, agentConfig.Pricing.Amount, agentConfig.Pricing.Currency))
+		return
+	}
+	ui.Info(fmt.Sprintf(
+		"Price reference for %q (%d comparable agent%s): median %.2f, range %.2f–%.2f %s. "+
+			"agent.yaml currently sets %s — pass --price %.2f to use the reference instead.",
+		reference, resp.SampleSize, pluralS(resp.SampleSize), *resp.Median, *resp.Min, *resp.Max, agentConfig.Pricing.Currency,
+		agentConfig.Pricing.Amount, *resp.Median,
+	))
+}
+
+func pluralS(n int) string {
+	if n == 1 {
+		return ""
+	}
+	return "s"
+}
+
 // slugify turns an agent's display name into a filesystem/keychain-safe
 // identifier for gora8-signer's local storage — lowercase, ASCII
 // letters/digits/hyphens only, so it's stable across the shells and
@@ -674,4 +775,6 @@ func init() {
 	deployCmd.Flags().StringVar(&deployRegistries, "registries", "gora8", "Comma-separated audiences to publish to on deploy")
 	deployCmd.Flags().StringVar(&deployWalletAddress, "wallet-address", "", "Use an already-generated EVM address instead of running gora8-signer init locally (e.g. if you generated it elsewhere)")
 	deployCmd.Flags().StringVar(&deploySolanaWalletAddress, "solana-wallet-address", "", "Use an already-generated Solana address instead of running gora8-signer init locally — only read when --wallet-address is also set")
+	deployCmd.Flags().StringVar(&deployFromOpenAPI, "from-openapi", "", "Derive capabilities from an OpenAPI spec file (JSON or YAML) instead of hand-authoring them in agent.yaml — pair with gora8_adapters.rest (adapters-python) to actually run the wrapper this deploys")
+	deployCmd.Flags().StringVar(&deployOperations, "operations", "", "Comma-separated operationIds to expose from --from-openapi (default: every operation the spec declares)")
 }

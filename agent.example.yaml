@@ -21,6 +21,12 @@ endpoint: "https://my-agent.example.com/a2a"
 # ── Capabilities ──────────────────────────────────────────────────────────────
 # Each capability is a skill your agent can perform. These are used to generate
 # your A2A agent card and to power discoverability across all publish audiences.
+#
+# Wrapping an existing REST API instead of hand-authoring these? Skip this
+# section and run `gora8 deploy --from-openapi ./openapi.json` instead — it
+# derives capabilities from your spec's operations (optionally curated via
+# --operations). See adapters-python's gora8_adapters.rest for the wrapper
+# that actually runs behind `endpoint:` in that case.
 
 capabilities:
   - id: "research.web"

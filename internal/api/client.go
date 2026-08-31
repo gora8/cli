@@ -526,6 +526,32 @@ func (c *Client) GetGasBudget() (*GasBudgetResponse, error) {
 	return &resp, nil
 }
 
+// PriceReference mirrors GET /v1/market/price-reference's response shape
+// (api/src/routes/market.ts) — min/max/mean/median are pointers because
+// the endpoint returns them as JSON null when SampleSize is 0 (no
+// gora8-native agent offers this capability yet), not zero.
+type PriceReference struct {
+	Capability string   `json:"capability"`
+	SampleSize int      `json:"sample_size"`
+	Min        *float64 `json:"min"`
+	Max        *float64 `json:"max"`
+	Mean       *float64 `json:"mean"`
+	Median     *float64 `json:"median"`
+	Scope      string   `json:"scope"`
+}
+
+// GetPriceReference is public/unauthenticated on the API side (same
+// reasoning as ListAgents' public directory), but this client always
+// sends its own auth header regardless — harmless against a public route.
+func (c *Client) GetPriceReference(capability string) (*PriceReference, error) {
+	var resp PriceReference
+	path := "/v1/market/price-reference?capability=" + url.QueryEscape(capability)
+	if err := c.do("GET", path, nil, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
 // ── Publish ──────────────────────────────────────────────────────────────────
 
 type PublishRequest struct {
