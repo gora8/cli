@@ -59,7 +59,14 @@ Examples:
   # agent.yaml to point at a running gora8_adapters.rest wrapper
   # (adapters-python) — this flag only touches agent.yaml, it doesn't run
   # anything.
-  gora8 deploy --from-openapi ./openapi.json --operations textToSpeech,listVoices`,
+  gora8 deploy --from-openapi ./openapi.json --operations textToSpeech,listVoices
+
+  # Don't want to run a server yourself? gora8 can host the compute too
+  # (Pro/Enterprise) — arm64 only. Point at an image you've already built
+  # and pushed:
+  gora8 deploy --host-image 123456789.dkr.ecr.eu-central-1.amazonaws.com/you/my-agent:latest --host-port 8080
+  # ...or let gora8 build a local Dockerfile and push it for you:
+  gora8 deploy --host`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: runDeploy,
 }

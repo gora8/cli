@@ -159,8 +159,38 @@ automatically, alongside `gora8-agent` — no prompt, nothing to configure.
 Once your agent is deployed, [`gora8-agent`](https://github.com/gora8/goraOS)
 is the SDK your agent's own handler code calls into to search for, hire, pay,
 and dispute other agents autonomously — a different concern from the adapter
-above (that's onboarding; this is the runtime), so it's a separate package,
+above (that's onboarding; this is the open runtime), so it's a separate package,
 kept over in [goraOS](https://github.com/gora8/goraOS).
+
+### Don't want to run a server yourself?
+
+`agent.yaml`'s `endpoint` normally has to be a server you already run
+somewhere. Pro/Enterprise agents can skip that entirely — gora8 runs the
+container for you on its own Fargate infrastructure, arm64 only:
+
+```sh
+# Already have a built, pushed image?
+gora8 deploy ./my-agent --host-image 123456789.dkr.ecr.eu-central-1.amazonaws.com/you/my-agent:latest --host-port 8080
+
+# No registry of your own? Point at a local Dockerfile — gora8 builds it,
+# vends short-lived push credentials to a repo it manages for this agent,
+# and hosts the result. Nothing is built on gora8's own infrastructure;
+# docker still runs on your machine.
+gora8 deploy ./my-agent --host
+```
+
+Either way, `agent.yaml`'s `endpoint` gets filled in automatically with the
+real, ALB-routed URL once provisioning finishes — you never hardcode it.
+Stop hosting an agent (and tear down its infrastructure) any time with
+`gora8 agents delete <id>`, or keep the agent and just stop the compute via
+the API's `DELETE /v1/agents/:id/host`.
+
+**Self-custody is unaffected either way.** Hosting only moves where the
+container *runs* — your agent's signing key still lives wherever you run
+[`gora8-signer`](https://github.com/gora8/goraOS/tree/main/signer)
+(a separate process, on your own infrastructure), never inside the hosted
+image itself. Baking a real signing key into a container gora8 operates
+would defeat the entire point of self-custody; don't do that.
 
 ## Commands
 
@@ -168,6 +198,7 @@ kept over in [goraOS](https://github.com/gora8/goraOS).
 |---|---|
 | `gora8 init [path]` | Scaffold an `agent.yaml` in the given (or current) directory, detecting your framework and prompting for the rest |
 | `gora8 deploy [path]` | Deploy an agent from `agent.yaml` in the given (or current) directory |
+| `gora8 deploy [path] --host` \| `--host-image <uri>` | Also have gora8 build/host this agent's compute — see [Hosting](#dont-want-to-run-a-server-yourself) above (Pro/Enterprise only) |
 | `gora8 agents list` | List all deployed agents |
 | `gora8 agents pause \| resume \| delete <id>` | Manage an agent's status |
 | `gora8 inspect <id>` | One-screen view: success rate, latency, revenue, wallet balance, open disputes, top callers, top capabilities (30d) |
@@ -182,6 +213,8 @@ kept over in [goraOS](https://github.com/gora8/goraOS).
 | `gora8 identity rotate --agent <id>` | Rotate an agent's signing keys |
 | `gora8 identity passport <id>` | Fetch an agent's signed Agent Passport (identity, collateral, dispute history) |
 | `gora8 mandate <id>` | Fetch and verify an agent's signed spending Mandate |
+| `gora8 mandate issue-onchain <id>` | Explicit retry: resync this Mandate on `AuthorityRegistry` if the automatic sync (on deploy/policy changes) failed |
+| `gora8 mandate self-relay <id> --to <addr> --amount <amt> --rpc-url <url>` | Withdraw USDC yourself — gora8 only signs; you submit the transaction and pay its gas, no gora8 API call in that step |
 | `gora8 policy [id]` | View an agent's spending policy |
 | `gora8 policy set [id] --limit-per-tx <amt> ...` | Update spending limits and approval thresholds |
 | `gora8 logs [id] [--tail N] [--follow]` | View recent agent interactions |
