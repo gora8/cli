@@ -526,6 +526,32 @@ func (c *Client) GetGasBudget() (*GasBudgetResponse, error) {
 	return &resp, nil
 }
 
+// PriceReference mirrors GET /v1/market/price-reference's response shape
+// (api/src/routes/market.ts) — min/max/mean/median are pointers because
+// the endpoint returns them as JSON null when SampleSize is 0 (no
+// gora8-native agent offers this capability yet), not zero.
+type PriceReference struct {
+	Capability string   `json:"capability"`
+	SampleSize int      `json:"sample_size"`
+	Min        *float64 `json:"min"`
+	Max        *float64 `json:"max"`
+	Mean       *float64 `json:"mean"`
+	Median     *float64 `json:"median"`
+	Scope      string   `json:"scope"`
+}
+
+// GetPriceReference is public/unauthenticated on the API side (same
+// reasoning as ListAgents' public directory), but this client always
+// sends its own auth header regardless — harmless against a public route.
+func (c *Client) GetPriceReference(capability string) (*PriceReference, error) {
+	var resp PriceReference
+	path := "/v1/market/price-reference?capability=" + url.QueryEscape(capability)
+	if err := c.do("GET", path, nil, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
 // ── Publish ──────────────────────────────────────────────────────────────────
 
 type PublishRequest struct {
@@ -884,6 +910,43 @@ type MandateSyncResult struct {
 func (c *Client) IssueMandateOnChain(agentID string) (*MandateSyncResult, error) {
 	var result MandateSyncResult
 	if err := c.do("POST", "/v1/agents/"+agentID+"/mandate/issue-onchain", nil, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// SelfRelayAuthorization is a fully-signed MandateEnforcer.execute()
+// call gora8 has NOT submitted — see routes/mandate.ts's
+// self-relay-withdraw doc comment for why the signing step can't be
+// gora8-API-free (the agent's own signer only trusts requests
+// authenticated with gora8's own issuer key) while submission genuinely
+// can be. Every numeric field arrives as a decimal string, not a JSON
+// number — Value/ExecuteNonce can exceed float64's safe integer range.
+type SelfRelayAuthorization struct {
+	Wallet                        string `json:"wallet"`
+	MandateEnforcerImplementation string `json:"mandate_enforcer_implementation"`
+	ChainID                       int64  `json:"chain_id"`
+	To                            string `json:"to"`
+	Value                         string `json:"value"`
+	Data                          string `json:"data"`
+	ExecuteNonce                  string `json:"execute_nonce"`
+	Signature                     string `json:"signature"`
+	Note                          string `json:"note"`
+}
+
+type selfRelayWithdrawRequest struct {
+	Amount    string `json:"amount"`
+	ToAddress string `json:"to_address"`
+}
+
+// SelfRelayWithdraw requests a signed-but-unsubmitted execute()
+// authorization for a USDC withdrawal — the CLI submits it itself (see
+// cmd/mandate_self_relay.go), paying its own gas against whatever RPC
+// it's given, with gora8 never in the submission path.
+func (c *Client) SelfRelayWithdraw(agentID, amount, toAddress string) (*SelfRelayAuthorization, error) {
+	var result SelfRelayAuthorization
+	body := selfRelayWithdrawRequest{Amount: amount, ToAddress: toAddress}
+	if err := c.do("POST", "/v1/agents/"+agentID+"/mandate/self-relay-withdraw", body, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
