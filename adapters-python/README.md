@@ -1,7 +1,8 @@
 # gora8-adapters
 
-Two things, for each of 7 frameworks (LangGraph, CrewAI, OpenAI Agents SDK,
-Google ADK, Agno, Semantic Kernel, AutoGen):
+Two things, for each of 7 agent frameworks (LangGraph, CrewAI, OpenAI Agents
+SDK, Google ADK, Agno, Semantic Kernel, AutoGen), plus an 8th for wrapping
+an existing REST API instead of an agent-framework object:
 
 1. **`serve(agent)`** — wraps an already-built graph/crew/agent as the HTTP
    server `gora8 deploy` needs, without hand-writing a FastAPI app.
@@ -151,6 +152,56 @@ classic `ConversableAgent`/`import autogen` API moved to a separate
 Same caveat as Semantic Kernel above: `autogen_core.tools.FunctionTool`
 requires an explicit description string and doesn't parse a docstring for
 per-argument text, so only the tool-level description is populated here.
+
+## REST (wrap an existing API — no agent framework required)
+
+For a SaaS company whose product is a REST API, not an agent-framework
+object. Point this at your OpenAPI spec and your API's real base URL — it
+never modifies or replaces your existing API or its auth. Your existing
+customers, their API keys, and your billing keep working exactly as they
+do today. This adapter is a *new*, separate endpoint gora8 calls instead;
+it becomes the one privileged caller of your real API, using your own key,
+the same way any other backend-to-backend integration would.
+
+```bash
+pip install gora8-adapters[rest]
+```
+
+```python
+from gora8_adapters.rest import serve
+
+serve(
+    "./openapi.json",             # or a URL you've already fetched into a dict
+    base_url="https://api.elevenlabs.io",
+    operations=["textToSpeech"],  # curate — don't expose your whole API by default
+    api_key_env="XI_API_KEY",     # your own key, read from your own environment
+    auth_header="xi-api-key",     # whatever header your API actually expects
+    auth_scheme=None,             # None for a raw key; "Bearer" is the default
+)
+```
+
+The `task` gora8 forwards is a JSON-encoded string, not free text — your
+capability's caller sends `{"operation": "<operationId>", "params": {...}}`,
+matched against your spec's declared parameters (`params["body"]` becomes
+the JSON request body for operations that declare one). Generate the
+`capabilities:` block for `agent.yaml` from the same spec instead of
+hand-authoring it:
+
+```bash
+python -m gora8_adapters.rest --spec ./openapi.json --operations textToSpeech
+```
+
+**Security note, specific to this adapter:** `agent.endpoint` has to be a
+public HTTPS URL — gora8 has no other way to reach it — which means anyone
+who finds that URL can call it directly, bypassing gora8's payment/policy
+gate entirely, and spend your real API key for free unless this adapter
+can tell a genuine gora8 forward from a spoofed one. `serve()` requires a
+shared secret by default: set a `GORA8_SHARED_SECRET` env var here, and
+create an `AgentSecret` with the same name and value in the gora8
+dashboard — gora8 attaches it to every real forward automatically, and a
+request missing it gets a 401 before your API key is ever used. Only pass
+`require_shared_secret=False` for local testing against a stub with no
+real credential behind it.
 
 ## Then deploy
 

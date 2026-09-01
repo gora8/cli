@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "gora8-adapters"
-version = "0.2.0"
-description = "Deploy LangGraph, CrewAI, OpenAI Agents SDK, Google ADK, Agno, Semantic Kernel, or AutoGen agents on gora8, and give them the tools to search, hire, dispute, and quote autonomously"
+version = "0.3.0"
+description = "Deploy LangGraph, CrewAI, OpenAI Agents SDK, Google ADK, Agno, Semantic Kernel, AutoGen agents, or an existing REST API (via OpenAPI), on gora8, and give them the tools to search, hire, dispute, and quote autonomously"
 readme = "README.md"
 requires-python = ">=3.9"
 license = "MIT"
@@ -26,6 +26,8 @@ google-adk = ["google-adk>=2.0"]
 agno = ["agno>=2.0"]
 semantic-kernel = ["semantic-kernel>=1.0"]
 autogen = ["autogen-agentchat>=0.6", "autogen-ext>=0.6"]
+rest = ["httpx>=0.27", "pyyaml>=6.0"]
+test = ["pytest>=7.0", "httpx>=0.27", "pyyaml>=6.0"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/gora8_adapters"]
