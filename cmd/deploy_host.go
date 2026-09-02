@@ -19,6 +19,7 @@ var (
 	deployHostPort   int
 	deployHostCPU    int
 	deployHostMemory int
+	deployHostYes    bool
 )
 
 // runHostFlow is called from runDeploy after the agent is registered
@@ -203,4 +204,5 @@ func init() {
 	deployCmd.Flags().IntVar(&deployHostPort, "host-port", 8080, "Port your container listens on, for --host/--host-image")
 	deployCmd.Flags().IntVar(&deployHostCPU, "host-cpu", 0, "Fargate CPU units (256=0.25 vCPU, 512, 1024, 2048, 4096) — defaults to 256 if unset")
 	deployCmd.Flags().IntVar(&deployHostMemory, "host-memory", 0, "Fargate memory in MiB — defaults to 512 if unset; must be a valid pairing for --host-cpu")
+	deployCmd.Flags().BoolVar(&deployHostYes, "yes", false, "Skip the confirmation prompt when --host/--host-image would discard agent.yaml's existing endpoint")
 }

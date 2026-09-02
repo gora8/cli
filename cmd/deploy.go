@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -179,12 +180,46 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 	// endpoint directly — and the a2a_card blob this placeholder lands in
 	// is written once at deploy and never read back by anything server-side.
 	// It's genuinely dead data, not a discoverability bug.
+	//
+	// Blank Endpoint unconditionally when hosting is requested — not just
+	// when it started empty. Found live: re-running --host on an agent
+	// that already has an agent.yaml endpoint (e.g. a dev tunnel from
+	// before hosting existed, now expired) sent that stale, no-longer-
+	// resolving URL straight through to the update request, which the
+	// server correctly rejected (400, "endpoint hostname could not be
+	// resolved") — hosting was about to overwrite it anyway, so there was
+	// never a reason to validate it in the first place.
+	//
+	// But discarding an *existing* endpoint is a real, surprising side
+	// effect — not just a fixed-up default. Confirm before doing it: an
+	// endpoint that looks stale to this heuristic might not be (transient
+	// DNS hiccup, not actually dead), and --host passed by mistake
+	// shouldn't silently detach a working agent from its real endpoint.
+	// A missing endpoint (nothing to discard) never prompts.
 	cardConfig := agentConfig
-	if (deployHost || deployHostImage != "") && agentConfig.Endpoint == "" {
+	if deployHost || deployHostImage != "" {
+		placeholderEndpoint := agentConfig.Endpoint
+		if placeholderEndpoint == "" {
+			placeholderEndpoint = "https://pending.gora8.com/" + slugify(agentConfig.Name)
+			ui.Info("No endpoint set — using a placeholder A2A card URL until hosting provisions one below.")
+		} else {
+			ui.Warning(fmt.Sprintf("agent.yaml currently has endpoint: %s", agentConfig.Endpoint))
+			ui.Warning("Hosting will replace this with a new, gora8-provisioned endpoint once it's up.")
+			if !deployHostYes {
+				fmt.Print("  Discard the existing endpoint and continue? [y/N] ")
+				scanner := bufio.NewScanner(os.Stdin)
+				scanner.Scan()
+				answer := strings.ToLower(strings.TrimSpace(scanner.Text()))
+				if answer != "y" && answer != "yes" {
+					ui.Error("Aborting — agent.yaml's endpoint left unchanged. Re-run with --yes to skip this prompt.")
+					return nil
+				}
+			}
+		}
 		placeholder := *agentConfig
-		placeholder.Endpoint = "https://pending.gora8.com/" + slugify(agentConfig.Name)
+		placeholder.Endpoint = placeholderEndpoint
 		cardConfig = &placeholder
-		ui.Info("No endpoint set — using a placeholder A2A card URL until hosting provisions one below.")
+		agentConfig.Endpoint = ""
 	}
 
 	fmt.Println()
