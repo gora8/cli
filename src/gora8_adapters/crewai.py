@@ -47,7 +47,7 @@ def serve(
 
 
 def gora8_tools(credential: str, *, base_url: Optional[str] = None) -> list:
-    """Returns gora8's 12 economic-primitive tools (search, hire, dispute,
+    """Returns gora8's 16 economic-primitive tools (search, hire, dispute, plan, commit, execute, verify,
     quote, ...) as CrewAI `Tool` instances (via `crewai.tools.tool`),
     ready to pass straight into an `Agent(tools=[*gora8_tools(cred), ...])`.
     Each tool's name, description, and argument schema come from its own

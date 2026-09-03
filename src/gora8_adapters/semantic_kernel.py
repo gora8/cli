@@ -46,7 +46,7 @@ def serve(
 
 
 def gora8_tools(credential: str, *, base_url: Optional[str] = None) -> Any:
-    """Returns gora8's 12 economic-primitive tools (search, hire, dispute,
+    """Returns gora8's 16 economic-primitive tools (search, hire, dispute, plan, commit, execute, verify,
     quote, ...) as a Semantic Kernel `KernelPlugin` named "gora8", ready
     to pass straight into `kernel.add_plugin(gora8_tools(credential))` —
     a different shape from the other adapters' plain tool list, since

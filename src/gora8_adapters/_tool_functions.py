@@ -1,4 +1,4 @@
-"""The 12 gora8-agent Client methods, as plain functions with rich
+"""The 16 gora8-agent Client methods, as plain functions with rich
 Google-style docstrings — defined once here, converted into each
 framework's own native tool format by that framework's own adapter
 module (langgraph.py, crewai.py, ...).
@@ -17,7 +17,7 @@ close to gora8-agent-mcp's own tool descriptions on purpose, so an
 agent behaves the same way regardless of which surface exposed these
 capabilities to it.
 
-One function object per tool, not a generic loop that generates 12
+One function object per tool, not a generic loop that generates 16
 near-identical closures — each framework's own tool decorator
 introspects the function's docstring/type hints to build its schema,
 and a hand-written docstring per tool produces a meaningfully better
@@ -40,7 +40,7 @@ if TYPE_CHECKING:
 
 
 def build_tool_functions(client: "Client") -> list[Callable[..., Any]]:
-    """Returns the 12 tool functions, each a closure over `client` —
+    """Returns the 16 tool functions, each a closure over `client` —
     call this once per agent (a `Client` is scoped to one
     AgentCredential) and hand the result to whichever framework-native
     conversion your adapter module provides."""
@@ -117,6 +117,88 @@ def build_tool_functions(client: "Client") -> list[Callable[..., Any]]:
             reason: Why this outcome is being disputed.
         """
         return client.dispute(target_agent_id=target_agent_id, wallet_transaction_id=wallet_transaction_id, reason=reason)
+
+    def plan(
+        target_agent_id: Optional[str] = None,
+        target_actor_id: Optional[str] = None,
+        capability: Optional[str] = None,
+        price: Optional[float] = None,
+        payload: Any = None,
+        acceptance_criteria: Optional[list] = None,
+        max_spend: Optional[float] = None,
+        deadline_seconds: Optional[int] = None,
+    ) -> dict:
+        """Assemble a set of executable, policy-checked options for a goal, without committing to or paying any of them yet.
+
+        Provide exactly one of target_agent_id, target_actor_id, or
+        capability — capability discovers multiple candidates via
+        ERC-8004 plus a live quote probe against each reachable one,
+        instead of naming a single target. Check each option's
+        policy.permitted before choosing it — an unpermitted option is
+        still returned (with why), not silently hidden. Pass the chosen
+        option's option_id to the commit tool next.
+
+        Args:
+            target_agent_id: Another gora8-deployed agent's id.
+            target_actor_id: An external, ERC-8004-registered agent's actor id.
+            capability: Discovers multiple candidates instead of naming one target.
+            price: Required when using target_actor_id.
+            payload: The task/request body that will be sent if this plan is executed.
+            acceptance_criteria: Optional list of typed acceptance-criteria dicts.
+            max_spend: Filters out options priced above this amount.
+            deadline_seconds: How long the plan and its options stay valid (default 300).
+        """
+        return client.plan(
+            target_agent_id=target_agent_id,
+            target_actor_id=target_actor_id,
+            capability=capability,
+            price=price,
+            payload=payload,
+            acceptance_criteria=acceptance_criteria,
+            max_spend=max_spend,
+            deadline_seconds=deadline_seconds,
+        )
+
+    def commit(plan_id: str, option_id: str) -> dict:
+        """Lock in one option from a prior plan call.
+
+        Forms the buyer-signed Agreement for a gora8-internal target
+        (best-effort, same as hire). Doesn't move any money yet; call
+        execute next with the same plan_id/option_id to actually settle.
+
+        Args:
+            plan_id: The plan id returned by a prior plan call.
+            option_id: The chosen option's id from that plan's options list.
+        """
+        return client.commit(plan_id, option_id)
+
+    def execute(plan_id: str, option_id: str) -> dict:
+        """Re-validate a committed plan option fresh and, only if the forward call to the target succeeds, settle payment.
+
+        Re-checks authority, balance, and that the target's on-file
+        wallet hasn't changed since plan/commit. Fails closed on an
+        expired plan or a policy check that no longer passes.
+
+        Args:
+            plan_id: The plan id from a prior plan call.
+            option_id: The option id that was passed to commit for this plan.
+        """
+        result = client.execute(plan_id, option_id)
+        return {"result": result.result, "agreement_id": result.agreement_id}
+
+    def verify(agreement_id: str) -> dict:
+        """Standalone, read-only delivery-criteria check for a finalized Agreement.
+
+        Unlike file_resolution_case, this never creates a ResolutionCase
+        or draws a panel. MECHANICAL criteria resolve deterministically;
+        SUBJECTIVE reports requires_dispute (file one via
+        file_resolution_case to actually resolve it); ATTESTED reports
+        unsupported.
+
+        Args:
+            agreement_id: The Agreement id to check delivery criteria for.
+        """
+        return client.verify(agreement_id)
 
     def quote(target_actor_id: str, payload: Any = None, capability: Optional[str] = None) -> dict:
         """Probe one external agent's real x402 challenge for what it would charge for a given payload, right now.
@@ -225,6 +307,10 @@ def build_tool_functions(client: "Client") -> list[Callable[..., Any]]:
         search,
         hire,
         dispute,
+        plan,
+        commit,
+        execute,
+        verify,
         quote,
         quotes,
         price_reference,
