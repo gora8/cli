@@ -9,7 +9,7 @@ import (
 
 var rootCmd = &cobra.Command{
 	Use:   "gora8",
-	Short: "gora8 CLI — the economic operating system for AI agents",
+	Short: "gora8 CLI — the execution and intelligence layer for autonomous commerce",
 	Long: `gora8 lets you deploy AI agents as first-class economic participants
 on the gora8 network.
 
@@ -49,6 +49,7 @@ func init() {
 		policyCmd,
 		logsCmd,
 		notificationsCmd,
+		orgCmd,
 		versionCmd,
 	)
 }

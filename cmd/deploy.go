@@ -644,10 +644,8 @@ func setupAgentSDK(dir string) {
 		if _, err := runIn("pip", append([]string{"install", "-q"}, pkgs...)...); err != nil {
 			if out, err := runIn("pip3", append([]string{"install", "-q"}, pkgs...)...); err != nil {
 				spin.Fail("Couldn't install gora8-agent automatically")
-				if out != "" {
-					ui.Info(out)
-				}
-				ui.Info("Added to requirements.txt — run: pip install -r requirements.txt")
+				ui.Info(explainPipFailure(out, pkgs))
+				ui.Info("Already added to requirements.txt, so once that's sorted: pip install -r requirements.txt")
 				return
 			}
 		}
@@ -660,9 +658,7 @@ func setupAgentSDK(dir string) {
 		if _, err := runIn("pip", append([]string{"install", "-q"}, pkgs...)...); err != nil {
 			if out, err := runIn("pip3", append([]string{"install", "-q"}, pkgs...)...); err != nil {
 				spin.Fail("Couldn't install gora8-agent automatically")
-				if out != "" {
-					ui.Info(out)
-				}
+				ui.Info(explainPipFailure(out, pkgs))
 				ui.Info("Run manually: pip install " + strings.Join(pkgs, " "))
 				return
 			}
@@ -673,6 +669,35 @@ func setupAgentSDK(dir string) {
 	default:
 		ui.Info("No requirements.txt/pyproject.toml/package.json found here — install the SDK yourself: pip install gora8-agent (Python) or npm install gora8-agent (Node)")
 	}
+}
+
+// explainPipFailure recognizes PEP 668's "externally-managed-environment"
+// refusal — found live: modern Homebrew Python refuses any unmanaged pip
+// install by default, and pip's own advice for it is 20+ lines of
+// generic, OS-agnostic boilerplate that's genuinely useful but drowns
+// out the one thing this specific CLI's user actually needs: a copy-
+// pasteable command that works for *this* install. Returns a short,
+// actionable message instead of pip's raw wall of text; falls back to
+// the real output for any other kind of failure, so a genuine different
+// error (network, permissions, a typo'd package name) doesn't get
+// silently hidden behind a wrong diagnosis.
+//
+// Leads with a venv, not --user — verified live (a real
+// externally-managed Homebrew Python, not assumed from pip's own
+// wording): PEP 668 blocks `pip install --user` too, identically to a
+// plain install. The only two options that actually work are a venv, or
+// accepting the risk explicitly with --break-system-packages — pip's
+// own message says as much, just buried after --user's incorrect
+// mention as if it alone were sufficient.
+func explainPipFailure(rawOutput string, pkgs []string) string {
+	if !strings.Contains(rawOutput, "externally-managed-environment") {
+		return rawOutput
+	}
+	pkgList := strings.Join(pkgs, " ")
+	return "Your Python is externally managed (common on Homebrew) — pip refuses an unmanaged install by default. Either:\n" +
+		"  python3 -m venv .venv && source .venv/bin/activate && pip install " + pkgList + "\n" +
+		"  # or, accepting the risk pip itself warns about (can affect Homebrew's own Python):\n" +
+		"  pip install --break-system-packages " + pkgList
 }
 
 // frameworkExtras maps a framework package name a project might already

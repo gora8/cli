@@ -34,7 +34,7 @@ func runChainsList(cmd *cobra.Command, args []string) error {
 	}
 
 	client := api.New(cfg)
-	chains, err := client.ListChains()
+	chains, aar, err := client.ListChainCapabilities()
 	if err != nil {
 		return err
 	}
@@ -46,17 +46,28 @@ func runChainsList(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// Six-capability matrix (gap-closure plan Stage 5/9) replacing the
+	// old flat "N chains supported" table — Identity/Discovery/Payment
+	// genuinely vary per chain; Authority/Agreement/Resolution don't (see
+	// api/src/lib/chain-capabilities.ts's doc comment), so they're
+	// printed once below instead of as three more per-row columns that
+	// would say the same thing every time.
 	ui.Header("Supported chains")
-	headers := []string{"CHAIN", "CAIP-2", "ROLLOUT"}
+	headers := []string{"CHAIN", "CAIP-2", "IDENTITY", "DISCOVERY", "PAYMENT"}
 	rows := make([][]string, 0, len(chains))
 	for _, c := range chains {
-		rollout := ui.Green("automatic (gora8 deploy)")
+		identity := c.Identity
 		if !c.AutoRollout {
-			rollout = ui.Yellow("opt-in — gora8 chains add <agent-id> " + c.Caip2)
+			identity = identity + " (gora8 chains add <agent-id> " + c.Caip2 + ")"
 		}
-		rows = append(rows, []string{c.Name, c.Caip2, rollout})
+		rows = append(rows, []string{c.Name, c.Caip2, identity, c.Discovery, c.Payment})
 	}
 	ui.Table(headers, rows)
+
+	if aar != nil {
+		fmt.Println()
+		ui.Info(fmt.Sprintf("Authority/Agreement/Resolution (gora8's own contracts): %s — %s", aar.Status, aar.Note))
+	}
 	return nil
 }
 

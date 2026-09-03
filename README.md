@@ -196,7 +196,8 @@ would defeat the entire point of self-custody; don't do that.
 
 | Command | Description |
 |---|---|
-| `gora8 init [path]` | Scaffold an `agent.yaml` in the given (or current) directory, detecting your framework and prompting for the rest |
+| `gora8 init [path]` | Scaffold an `agent.yaml` in the given (or current) directory, detecting your framework and prompting for the rest. Also installs the gora8-commerce Agent Skill (`--no-skill` to opt out) |
+| `gora8 skill install [path]` | Install/update the gora8-commerce Agent Skill into `.claude/skills/gora8-commerce/` — teaches Claude Code (or any other Agent-Skill-aware host) working in this project how to call gora8's real commerce API |
 | `gora8 deploy [path]` | Deploy an agent from `agent.yaml` in the given (or current) directory |
 | `gora8 deploy [path] --host` \| `--host-image <uri>` | Also have gora8 build/host this agent's compute — see [Hosting](#dont-want-to-run-a-server-yourself) above (Pro/Enterprise only) |
 | `gora8 agents list` | List all deployed agents |

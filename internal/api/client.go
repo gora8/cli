@@ -373,6 +373,20 @@ type SupportedChain struct {
 	ChainID     int    `json:"chain_id"`
 	Name        string `json:"name"`
 	AutoRollout bool   `json:"auto_rollout"`
+	// Six-capability matrix (gap-closure plan Stage 5/9) — Identity/
+	// Discovery/Payment vary per chain; Authority/Agreement/Resolution
+	// don't (see AuthorityAgreementResolution below), so they aren't here.
+	Identity  string `json:"identity"`
+	Discovery string `json:"discovery"`
+	Payment   string `json:"payment"`
+}
+
+// Platform-wide, not per-chain — gora8's own Authority/Agreement/
+// Resolution contracts aren't deployed to any mainnet chain yet (see
+// api/src/lib/chain-capabilities.ts's doc comment).
+type AuthorityAgreementResolution struct {
+	Status string `json:"status"`
+	Note   string `json:"note"`
 }
 
 type ChainActivateResponse struct {
@@ -495,13 +509,23 @@ func (c *Client) GetRegistryCredentials(agentID string) (*RegistryCredentials, e
 }
 
 func (c *Client) ListChains() ([]SupportedChain, error) {
+	chains, _, err := c.ListChainCapabilities()
+	return chains, err
+}
+
+// ListChainCapabilities is ListChains plus the platform-wide Authority/
+// Agreement/Resolution status — a separate method rather than changing
+// ListChains's signature, so every existing caller of the simpler one
+// keeps compiling unchanged.
+func (c *Client) ListChainCapabilities() ([]SupportedChain, *AuthorityAgreementResolution, error) {
 	var result struct {
-		Chains []SupportedChain `json:"chains"`
+		Chains                       []SupportedChain             `json:"chains"`
+		AuthorityAgreementResolution AuthorityAgreementResolution `json:"authority_agreement_resolution"`
 	}
 	if err := c.do("GET", "/v1/chains", nil, &result); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return result.Chains, nil
+	return result.Chains, &result.AuthorityAgreementResolution, nil
 }
 
 func (c *Client) ActivateChain(agentID, chain string) (*ChainActivateResponse, error) {
@@ -1033,6 +1057,18 @@ func (c *Client) CreateCheckoutSession() (*CheckoutResponse, error) {
 	return &resp, nil
 }
 
+// CreateTierCheckoutSession is CreateCheckoutSession for the new
+// decision-volume tiers (Stage 7 of the gap-closure plan) — tier is
+// "production" or "platform"; Builder is free and Enterprise is
+// negotiated, neither has a checkout.
+func (c *Client) CreateTierCheckoutSession(tier string) (*CheckoutResponse, error) {
+	var resp CheckoutResponse
+	if err := c.do("POST", "/v1/billing/checkout/"+tier, nil, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
 type OnrampResponse struct {
 	URL string `json:"url"`
 }
@@ -1049,4 +1085,77 @@ func (c *Client) CreateOnrampSession(agentID string) (*OnrampResponse, error) {
 		return nil, err
 	}
 	return &resp, nil
+}
+
+// ── Organizations ────────────────────────────────────────────────────────────
+// Stage 1/9 of the gap-closure plan: routes/organizations.ts's minimal
+// CRUD + membership + agent-assignment surface, the API this command
+// group was deferred behind (see that plan's Stage 1 scoping note) until
+// it existed.
+
+type OrganizationMember struct {
+	ID             string `json:"id"`
+	OrganizationID string `json:"organizationId"`
+	UserID         string `json:"userId"`
+	Role           string `json:"role"`
+	CreatedAt      string `json:"createdAt"`
+}
+
+type Organization struct {
+	ID        string               `json:"id"`
+	Name      string               `json:"name"`
+	CreatedAt string               `json:"createdAt"`
+	Members   []OrganizationMember `json:"members"`
+	Agents    []Agent              `json:"agents"`
+	// Only set on the list response (GET /v1/organizations) — the
+	// caller's own role in this org, not a general-purpose field.
+	MyRole string `json:"myRole,omitempty"`
+}
+
+func (c *Client) CreateOrganization(name string) (*Organization, error) {
+	var org Organization
+	if err := c.do("POST", "/v1/organizations", map[string]string{"name": name}, &org); err != nil {
+		return nil, err
+	}
+	return &org, nil
+}
+
+func (c *Client) ListOrganizations() ([]Organization, error) {
+	var orgs []Organization
+	if err := c.do("GET", "/v1/organizations", nil, &orgs); err != nil {
+		return nil, err
+	}
+	return orgs, nil
+}
+
+func (c *Client) GetOrganization(id string) (*Organization, error) {
+	var org Organization
+	if err := c.do("GET", "/v1/organizations/"+id, nil, &org); err != nil {
+		return nil, err
+	}
+	return &org, nil
+}
+
+func (c *Client) InviteOrganizationMember(orgID, email, role string) (*OrganizationMember, error) {
+	var member OrganizationMember
+	body := map[string]string{"email": email}
+	if role != "" {
+		body["role"] = role
+	}
+	if err := c.do("POST", "/v1/organizations/"+orgID+"/members", body, &member); err != nil {
+		return nil, err
+	}
+	return &member, nil
+}
+
+func (c *Client) RemoveOrganizationMember(orgID, memberID string) error {
+	_, err := c.doRaw("DELETE", "/v1/organizations/"+orgID+"/members/"+memberID, nil)
+	return err
+}
+
+// AssignAgentOrganization sets or clears (pass nil) the agent's
+// organization — wraps POST /v1/agents/{agentID}/organization, the only
+// writer of Agent.organizationId.
+func (c *Client) AssignAgentOrganization(agentID string, organizationID *string) error {
+	return c.do("POST", "/v1/agents/"+agentID+"/organization", map[string]interface{}{"organizationId": organizationID}, nil)
 }

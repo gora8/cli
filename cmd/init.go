@@ -8,10 +8,13 @@ import (
 	"strings"
 
 	"github.com/gora8/cli/internal/card"
+	"github.com/gora8/cli/internal/skill"
 	"github.com/gora8/cli/internal/ui"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
+
+var initNoSkill bool
 
 var initCmd = &cobra.Command{
 	Use:   "init [directory]",
@@ -24,6 +27,10 @@ detects which agent framework you're using, then pre-fills what it can
 (name, a starter capability). Endpoint, description, and pricing are
 business decisions it can't guess, so it asks for those directly.
 
+Also installs the gora8-commerce Agent Skill into
+.claude/skills/gora8-commerce/ unless --no-skill is passed or a skill is
+already installed there — see 'gora8 skill install'.
+
 This does not deploy anything — run 'gora8 deploy' afterward once the
 generated agent.yaml looks right.`,
 	Args: cobra.MaximumNArgs(1),
@@ -31,6 +38,7 @@ generated agent.yaml looks right.`,
 }
 
 func init() {
+	initCmd.Flags().BoolVar(&initNoSkill, "no-skill", false, "Don't install the gora8-commerce Agent Skill")
 	rootCmd.AddCommand(initCmd)
 }
 
@@ -109,6 +117,18 @@ func runInit(cmd *cobra.Command, args []string) error {
 	}
 
 	ui.Success(fmt.Sprintf("Wrote %s", outPath))
+
+	if !initNoSkill && !skill.AlreadyInstalled(dir) {
+		if target, err := skill.Install(dir); err != nil {
+			// Best-effort — a failed skill install (e.g. read-only
+			// filesystem) shouldn't fail scaffolding a project that
+			// otherwise succeeded.
+			ui.Warning(fmt.Sprintf("Could not install gora8-commerce skill: %v", err))
+		} else {
+			ui.Success(fmt.Sprintf("Installed gora8-commerce skill to %s", target))
+		}
+	}
+
 	ui.Info("Review it, then run: gora8 deploy " + dir)
 	return nil
 }

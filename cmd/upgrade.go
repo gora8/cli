@@ -11,10 +11,14 @@ import (
 
 var upgradeCmd = &cobra.Command{
 	Use:   "upgrade",
-	Short: "Upgrade to Pro for unlimited agents",
-	Long: `The free plan is limited to 1 deployed agent, CLI-only (the web
-dashboard requires Pro). This opens a real Stripe Checkout session for the
-$29/mo Pro plan — unlimited agents, plus full web dashboard access.
+	Short: "Upgrade to Production for unlimited agents",
+	Long: `Builder is limited to 1 deployed agent, CLI-only (the web dashboard
+requires Production or above). This opens a real Stripe Checkout session
+for Production — unlimited agents, plus full web dashboard access,
+priced on economically consequential decisions rather than seats.
+
+Already on the older flat $29/mo Pro plan? Nothing changes for you —
+this command is for new upgrades only.
 
 The CLI itself never sees your payment details; Stripe hosts the checkout
 page directly.`,
@@ -35,7 +39,7 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 	client := api.New(cfg)
 	spin := ui.NewSpinner("Creating checkout session...")
 	spin.Start()
-	resp, err := client.CreateCheckoutSession()
+	resp, err := client.CreateTierCheckoutSession("production")
 	if err != nil {
 		spin.Fail("Could not create checkout session")
 		return err
